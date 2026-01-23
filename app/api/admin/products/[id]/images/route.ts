@@ -53,9 +53,9 @@ export async function POST(
   const image_url = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 
   const { error: dbErr } = await supabase
-    .from("products")
-    .update({ flipagram_url: image_url })
-    .eq("id", id);
+  .from("products")
+  .update({ image_url })
+  .eq("id", id);
 
   if (dbErr) return new NextResponse(dbErr.message, { status: 400 });
 

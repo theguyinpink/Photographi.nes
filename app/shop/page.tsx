@@ -11,7 +11,7 @@ type Product = {
   title: string;
   price_cents: number;
   currency: string;
-  thumbnail_url: string | null;
+  image_url: string | null;
   created_at?: string;
 };
 
