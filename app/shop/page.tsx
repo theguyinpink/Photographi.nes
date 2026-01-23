@@ -38,7 +38,7 @@ export default async function ShopPage() {
 
           <Link
             href="/cart"
-            className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/80 hover:bg-black/[0.03] transition"
+            className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/80 hover:bg-black/3 transition"
           >
             Ouvrir le panier
           </Link>
@@ -63,7 +63,7 @@ export default async function ShopPage() {
             {products.map((p) => (
               <Link key={p.id} href={`/product/${p.id}`} className="group">
                 <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
-                  <div className="aspect-[4/3] bg-black/[0.03]">
+                  <div className="aspect-4/3 bg-black/3">
                     {p.thumbnail_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
