@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/ToastProvider";
+import { AdminImageDropzone } from "@/components/ui/AdminImageDropzone";
 
 type FormState = {
   title: string;
@@ -13,8 +15,11 @@ type FormState = {
   description: string;
 };
 
+type Step = "idle" | "creating" | "uploading" | "done";
+
 export default function NewProductForm() {
   const router = useRouter();
+  const toast = useToast();
 
   const [form, setForm] = useState<FormState>({
     title: "",
@@ -27,16 +32,36 @@ export default function NewProductForm() {
   });
 
   const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<Step>("idle");
+  const busy = step !== "idle" && step !== "done";
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => {
+  const dirty = useMemo(() => {
     return (
-      form.title.trim().length >= 2 &&
-      Number(form.price) > 0 &&
+      form.title.trim() ||
+      form.price.trim() !== "8.00" ||
+      form.sport.trim() ||
+      form.team.trim() ||
+      form.person.trim() ||
+      form.taken_at.trim() ||
+      form.description.trim() ||
       !!file
     );
   }, [form, file]);
+
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (!dirty || busy) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty, busy]);
+
+  const canSubmit = useMemo(() => {
+    return form.title.trim().length >= 2 && Number(form.price) > 0 && !!file && !busy;
+  }, [form, file, busy]);
 
   function onChange<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((p) => ({ ...p, [key]: value }));
@@ -47,11 +72,13 @@ export default function NewProductForm() {
     setError(null);
 
     if (!file) {
-      setError("Ajoute une image watermarkée.");
+      const msg = "Ajoute une image watermarkée avant de créer le produit.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
-    setBusy(true);
+    setStep("creating");
     try {
       // 1) Créer le produit (sans image_url)
       const createRes = await fetch("/api/admin/products", {
@@ -78,6 +105,7 @@ export default function NewProductForm() {
       if (!id) throw new Error("ID produit manquant.");
 
       // 2) Upload de l'image watermarkée
+      setStep("uploading");
       const fd = new FormData();
       fd.append("image", file);
 
@@ -91,190 +119,150 @@ export default function NewProductForm() {
         throw new Error(t);
       }
 
+      setStep("done");
+      toast.success("Produit créé + image uploadée ✅", "OK");
+
       // 3) Done -> retour liste admin
       router.push("/admin/products");
       router.refresh();
     } catch (err: any) {
-      setError(err?.message || "Une erreur est survenue.");
-    } finally {
-      setBusy(false);
+      const msg = err?.message || "Une erreur est survenue.";
+      setError(msg);
+      toast.error(msg, "Erreur");
+      setStep("idle");
     }
   }
 
+  const statusLabel =
+    step === "creating"
+      ? "Création du produit…"
+      : step === "uploading"
+        ? "Upload de l’image…"
+        : "";
+
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <div className="rounded-[28px] border border-black/10 bg-white p-7 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-        <div className="mb-7">
-          <div className="text-xs uppercase tracking-[0.22em] text-black/40">
-            Admin • Nouveau produit
-          </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-black">
-            Ajouter une photo
-          </h1>
-          <p className="mt-2 text-sm text-black/60">
-            Upload 1 seule image déjà watermarkée. Elle sera affichée partout (boutique, panier, produit).
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-zinc-900">Nouveau produit</h1>
+        <p className="mt-1 text-sm text-zinc-500">Une image watermarkée, une fiche clean, et c’est parti.</p>
+      </div>
 
-        <form onSubmit={onSubmit} className="space-y-6">
-          {/* Grid */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Titre">
-              <Input
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-zinc-900">Titre</label>
+              <input
                 value={form.title}
                 onChange={(e) => onChange("title", e.target.value)}
-                placeholder="Ex: Charlène Carré"
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Ex: Dunk — Paris Basketball"
               />
-            </Field>
+            </div>
 
-            <Field label="Prix (EUR)">
-              <Input
+            <div>
+              <label className="text-sm font-medium text-zinc-900">Prix (€)</label>
+              <input
+                inputMode="decimal"
                 value={form.price}
                 onChange={(e) => onChange("price", e.target.value)}
-                inputMode="decimal"
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
                 placeholder="8.00"
               />
-            </Field>
+            </div>
 
-            <Field label="Sport / Événement">
-              <Input
-                value={form.sport}
-                onChange={(e) => onChange("sport", e.target.value)}
-                placeholder="Ex: Basket"
-              />
-            </Field>
-
-            <Field label="Équipe">
-              <Input
-                value={form.team}
-                onChange={(e) => onChange("team", e.target.value)}
-                placeholder="Ex: Paris Basketball"
-              />
-            </Field>
-
-            <Field label="Personne">
-              <Input
-                value={form.person}
-                onChange={(e) => onChange("person", e.target.value)}
-                placeholder="Ex: TJ Shorts"
-              />
-            </Field>
-
-            <Field label="Photo prise le">
-              <Input
+            <div>
+              <label className="text-sm font-medium text-zinc-900">Date (optionnel)</label>
+              <input
                 type="date"
                 value={form.taken_at}
                 onChange={(e) => onChange("taken_at", e.target.value)}
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
               />
-            </Field>
-          </div>
-
-          <Field label="Description">
-            <textarea
-              value={form.description}
-              onChange={(e) => onChange("description", e.target.value)}
-              placeholder="Quelques mots sur la photo, le contexte…"
-              className="min-h-27.5 w-full resize-none rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-black/30"
-            />
-          </Field>
-
-          {/* Upload */}
-          <div className="rounded-2xl border border-black/10 bg-black/2 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-sm font-medium text-black">
-                  Image watermarkée
-                </div>
-                <div className="text-xs text-black/55">
-                  PNG/JPG — déjà filigranée (logo répété). C’est celle qui sera affichée sur le site.
-                </div>
-              </div>
-
-              <label className="group inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm shadow-sm transition hover:border-black/20 hover:bg-black hover:text-white">
-                <span className="font-medium">
-                  {file ? "Changer l’image" : "Choisir un fichier"}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </label>
             </div>
 
-            {file ? (
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-black/10 bg-white px-4 py-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-black">
-                    {file.name}
-                  </div>
-                  <div className="text-xs text-black/50">
-                    {(file.size / (1024 * 1024)).toFixed(2)} Mo
-                  </div>
-                </div>
-                <div className="text-xs text-black/40">Prêt</div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Error */}
-          {error ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
+            <div>
+              <label className="text-sm font-medium text-zinc-900">Sport (optionnel)</label>
+              <input
+                value={form.sport}
+                onChange={(e) => onChange("sport", e.target.value)}
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Basket, Foot…"
+              />
             </div>
-          ) : null}
 
-          {/* Actions */}
-          <div className="flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
-            <button
-              type="button"
-              onClick={() => router.push("/admin/products")}
-              className="rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm text-black shadow-sm transition hover:border-black/20"
-            >
-              Retour
-            </button>
+            <div>
+              <label className="text-sm font-medium text-zinc-900">Équipe (optionnel)</label>
+              <input
+                value={form.team}
+                onChange={(e) => onChange("team", e.target.value)}
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="PSG, Paris Basketball…"
+              />
+            </div>
 
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-zinc-900">Personne (optionnel)</label>
+              <input
+                value={form.person}
+                onChange={(e) => onChange("person", e.target.value)}
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Nom du joueur / artiste…"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-zinc-900">Description (optionnel)</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => onChange("description", e.target.value)}
+                className="mt-1 min-h-[120px] w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-400"
+                placeholder="Quelques lignes…"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <AdminImageDropzone
+            label="Image du produit"
+            required
+            help="PNG/JPG — watermark déjà appliqué"
+            value={file}
+            onChange={(f) => setFile(f)}
+            maxSizeMb={15}
+            onError={(m) => toast.error(m)}
+          />
+        </div>
+
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            className="rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+            onClick={() => router.push("/admin/products")}
+            disabled={busy}
+          >
+            Retour
+          </button>
+
+          <div className="flex items-center gap-3">
+            {busy ? <div className="text-sm text-zinc-500">{statusLabel}</div> : null}
             <button
               type="submit"
-              disabled={!canSubmit || busy}
-              className="rounded-full bg-black px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canSubmit}
+              className="rounded-2xl bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {busy ? "Création…" : "Créer le produit"}
+              {busy ? "En cours…" : "Créer"}
             </button>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <div className="mb-2 text-xs uppercase tracking-[0.18em] text-black/40">
-        {label}
-      </div>
-      {children}
-    </label>
-  );
-}
-
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={[
-        "h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm text-black",
-        "outline-none transition focus:border-black/30",
-        props.className ?? "",
-      ].join(" ")}
-    />
   );
 }
