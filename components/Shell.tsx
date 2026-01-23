@@ -23,7 +23,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="border-b border-black/10 bg-white/70 backdrop-blur">
           <div className="mx-auto max-w-6xl px-6">
             <div className="flex h-16 items-center justify-between">
-              import Image from "next/image"; import Link from "next/link"; ...
               <Link
                 href="/"
                 className="flex items-center gap-4 no-underline"
