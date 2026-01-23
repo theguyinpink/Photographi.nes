@@ -4,6 +4,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
 import AddToCartButton from "@/components/cart/AddToCartButton";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 
 type Props = {
   params: { id: string };
