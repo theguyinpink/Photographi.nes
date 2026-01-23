@@ -8,7 +8,7 @@ function serviceSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 }
 
@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
       team: body.team ?? null,
       person: body.person ?? null,
       taken_at: body.taken_at ?? null,
+      thumbnail_url: body.thumbnail_url ?? null,
+      flipagram_url: body.flipagram_url ?? null,
     })
     .select("id")
     .single();
