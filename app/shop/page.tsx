@@ -27,12 +27,15 @@ export default async function ShopPage() {
         {/* Top row */}
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.22em] text-black/40">Galerie</div>
+            <div className="text-xs uppercase tracking-[0.22em] text-black/40">
+              Galerie
+            </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
               Boutique
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-black/60">
-              Clique sur une photo pour ouvrir la fiche (preview protégé) et l’ajouter au panier.
+              Clique sur une photo pour ouvrir la fiche (preview protégé) et
+              l’ajouter au panier.
             </p>
           </div>
 
@@ -51,9 +54,14 @@ export default async function ShopPage() {
           </div>
         ) : products.length === 0 ? (
           <div className="mt-10 rounded-3xl border border-black/10 bg-white p-10">
-            <div className="text-sm text-black/60">Aucun produit pour l’instant.</div>
+            <div className="text-sm text-black/60">
+              Aucun produit pour l’instant.
+            </div>
             <div className="mt-6">
-              <Link href="/admin/products" className="underline underline-offset-8 text-sm font-medium">
+              <Link
+                href="/admin/products"
+                className="underline underline-offset-8 text-sm font-medium"
+              >
                 Aller à l’admin
               </Link>
             </div>
@@ -63,20 +71,16 @@ export default async function ShopPage() {
             {products.map((p) => (
               <Link key={p.id} href={`/product/${p.id}`} className="group">
                 <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
-                  <div className="aspect-4/3 bg-black/3">
-                    {p.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                  <div className="p-3">
+                    <div className="relative w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={p.thumbnail_url}
+                        src={p.thumbnail_url ?? ""}
                         alt={p.title}
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                        className="w-full h-auto object-contain"
                         loading="lazy"
                       />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-black/40">
-                        Aperçu
-                      </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Infos très discrètes (Leen Heyne vibe) */}
