@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { requireAdmin } from "@/app/lib/requireAdmin";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -87,7 +87,7 @@ export async function POST(
   {
     const { error } = await supabase.storage
       .from("public-images")
-      .upload(thumbPath, new Blob([thumbBuf], { type: "image/jpeg" }), {
+      .upload(thumbPath, new Blob([new Uint8Array(thumbBuf)], { type: "image/jpeg" }), {
         upsert: true,
         contentType: "image/jpeg",
       });
@@ -108,7 +108,7 @@ export async function POST(
   {
     const { error } = await supabase.storage
       .from("previews")
-      .upload(flipPath, new Blob([flipBuf], { type: "image/jpeg" }), {
+      .upload(flipPath, new Blob([new Uint8Array(flipBuf)], { type: "image/jpeg" }), {
         upsert: true,
         contentType: "image/jpeg",
       });

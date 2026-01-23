@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { supabaseServer } from "@/lib/supabase-server";
 
-export async function POST(req: Request) {
-  const body = await req.json();
+export async function GET() {
+  await requireAdmin();
+  const supabase = await supabaseServer();
 
-  if (!body.title || !body.price_cents) {
-    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
-  }
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-  await supabaseServer.from("products").insert({
-    title: body.title,
-    price_cents: body.price_cents,
-    currency: "EUR",
-    is_active: true,
-  });
-
-  return NextResponse.json({ ok: true });
+  if (error) return new NextResponse(error.message, { status: 400 });
+  return NextResponse.json(data);
 }
