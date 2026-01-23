@@ -11,17 +11,84 @@ import {
   clearCart,
 } from "@/components/cart/cartStorage";
 
+import { calculateTotalPrice } from "@/lib/pricing";
+
+/* ---------- helpers ---------- */
+
+function getPricingLabel(photoCount: number) {
+  if (photoCount === 1) return "Tarif individuel";
+  if (photoCount === 3) return "Pack 3 photos";
+  if (photoCount === 4) return "Pack 3 + 1";
+  if (photoCount === 5) return "Pack 5 photos";
+  return "Tarif standard";
+}
+
+/* ---------- page ---------- */
+
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setItems(getCart());
   }, []);
 
-  const totalCents = useMemo(
+  // nombre total de photos = somme des quantités
+  const photoCount = useMemo(
+    () => items.reduce((sum, i) => sum + (i.qty ?? 0), 0),
+    [items]
+  );
+
+  // total sans promo (8€ * qty)
+  const baseTotalCents = useMemo(
     () => items.reduce((sum, i) => sum + i.price_cents * i.qty, 0),
     [items]
   );
+
+  // total avec bundle
+  const bundleTotalEuros = useMemo(
+    () => calculateTotalPrice(photoCount),
+    [photoCount]
+  );
+
+  const bundleTotalCents = bundleTotalEuros * 100;
+  const savingsCents = Math.max(0, baseTotalCents - bundleTotalCents);
+
+  /* ---------- Stripe ---------- */
+
+  const handleCheckout = async () => {
+    if (photoCount <= 0) return;
+
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            id: i.id,
+            qty: i.qty,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Erreur lors du paiement");
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur réseau");
+      setLoading(false);
+    }
+  };
+
+  /* ---------- render ---------- */
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
@@ -29,7 +96,10 @@ export default function CartPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
           Panier
         </h1>
-        <Link href="/shop" className="text-sm text-neutral-500 hover:text-neutral-900">
+        <Link
+          href="/shop"
+          className="text-sm text-neutral-500 hover:text-neutral-900"
+        >
           ← Continuer mes achats
         </Link>
       </div>
@@ -46,6 +116,7 @@ export default function CartPage() {
         </div>
       ) : (
         <div className="grid gap-6">
+          {/* Items */}
           <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
             <div className="grid gap-4">
               {items.map((item) => (
@@ -61,12 +132,15 @@ export default function CartPage() {
                         fill
                         className="object-cover"
                         sizes="80px"
+                        unoptimized
                       />
                     ) : null}
                   </div>
 
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-neutral-900">{item.title}</p>
+                    <p className="text-sm font-medium text-neutral-900">
+                      {item.title}
+                    </p>
                     <p className="text-xs text-neutral-500">
                       {(item.price_cents / 100).toFixed(2)} € / unité
                     </p>
@@ -76,7 +150,6 @@ export default function CartPage() {
                     <button
                       onClick={() => setItems(setQty(item.id, item.qty - 1))}
                       className="h-9 w-9 rounded-xl border border-neutral-200 text-neutral-900 hover:bg-neutral-50"
-                      aria-label="Diminuer"
                     >
                       −
                     </button>
@@ -88,7 +161,6 @@ export default function CartPage() {
                     <button
                       onClick={() => setItems(setQty(item.id, item.qty + 1))}
                       className="h-9 w-9 rounded-xl border border-neutral-200 text-neutral-900 hover:bg-neutral-50"
-                      aria-label="Augmenter"
                     >
                       +
                     </button>
@@ -109,19 +181,47 @@ export default function CartPage() {
             </div>
           </div>
 
+          {/* Summary */}
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-neutral-600">Total</span>
-              <span className="text-lg font-semibold text-neutral-900">
-                {(totalCents / 100).toFixed(2)} €
-              </span>
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="text-sm text-neutral-600">
+                  {photoCount} photo{photoCount > 1 ? "s" : ""} •{" "}
+                  <span className="text-neutral-500">
+                    {getPricingLabel(photoCount)}
+                  </span>
+                </div>
+
+                {savingsCents > 0 ? (
+                  <div className="mt-2 text-sm text-neutral-600">
+                    <span className="line-through text-neutral-400">
+                      {(baseTotalCents / 100).toFixed(2)} €
+                    </span>
+                    <span className="ml-2 font-medium text-neutral-900">
+                      Économie : {(savingsCents / 100).toFixed(2)} €
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-neutral-500">
+                    Tarif standard appliqué.
+                  </div>
+                )}
+              </div>
+
+              <div className="text-right">
+                <div className="text-sm text-neutral-600">Total</div>
+                <div className="text-lg font-semibold text-neutral-900">
+                  {(bundleTotalCents / 100).toFixed(2)} €
+                </div>
+              </div>
             </div>
 
             <button
-              onClick={() => alert("Prochaine étape : Stripe Checkout ✅")}
-              className="mt-4 w-full rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white hover:bg-black"
+              onClick={handleCheckout}
+              disabled={loading}
+              className="mt-4 w-full rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white hover:bg-black disabled:opacity-60"
             >
-              Payer
+              {loading ? "Redirection..." : "Payer"}
             </button>
 
             <button
@@ -133,6 +233,10 @@ export default function CartPage() {
             >
               Vider le panier
             </button>
+
+            <div className="mt-4 text-xs text-neutral-500">
+              Règles : 1=8€ • 3=20€ • 4=28€ • 5=30€ • sinon 8€/photo
+            </div>
           </div>
         </div>
       )}
