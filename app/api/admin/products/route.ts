@@ -12,31 +12,40 @@ function serviceSupabase() {
   );
 }
 
-export async function PATCH(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET() {
   await requireAdmin();
-  const { id } = await context.params;
-
-  const body = await req.json();
   const supabase = serviceSupabase();
 
-  // ✅ on whitelist ce qu’on accepte
-  const payload = {
-    title: body.title,
-    price_cents: body.price_cents,
-    is_active: body.is_active,
-    sport: body.sport ?? null,
-    team: body.team ?? null,
-    person: body.person ?? null,
-    taken_at: body.taken_at ?? null,
-    description: body.description ?? null,
-  };
-
-  const { error } = await supabase.from("products").update(payload).eq("id", id);
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (error) return new NextResponse(error.message, { status: 400 });
+  return NextResponse.json(data);
+}
 
-  return NextResponse.json({ ok: true });
+export async function POST(req: NextRequest) {
+  await requireAdmin();
+  const supabase = serviceSupabase();
+
+  const body = await req.json();
+
+  const { data, error } = await supabase
+    .from("products")
+    .insert({
+      title: body.title ?? "Nouveau produit",
+      price_cents: body.price_cents ?? 0,
+      is_active: body.is_active ?? false,
+      description: body.description ?? null,
+      sport: body.sport ?? null,
+      team: body.team ?? null,
+      person: body.person ?? null,
+      taken_at: body.taken_at ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) return new NextResponse(error.message, { status: 400 });
+  return NextResponse.json({ id: data.id });
 }
