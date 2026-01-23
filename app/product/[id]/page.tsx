@@ -75,15 +75,14 @@ export default async function ProductPage({
             <div className="p-4">
               <div className="relative aspect-square w-full overflow-hidden rounded-[22px] bg-black/3">
                 <Image
-                  src={imgSrc}
-                  alt={p.title ?? "Photo"}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  priority
+                src={imgSrc}
+                alt={p.title ?? "Photo"}
+                fill
+                className="object-contain"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                priority
+                unoptimized
                 />
-              </div>
-
               <p className="mt-3 text-xs text-black/45">
                 Preview watermarkée (bucket previews)
               </p>
