@@ -119,6 +119,7 @@ const [isActive, setIsActive] = useState(true);
 
       const data = await r.json();
       router.push(`/admin/products/${data.id}`);
+      if (!data?.id) throw new Error("Création OK mais id manquant");
       router.refresh();
     } catch (e: any) {
       alert(e?.message ?? "Erreur création");
