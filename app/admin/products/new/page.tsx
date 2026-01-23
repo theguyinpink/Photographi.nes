@@ -1,58 +1,27 @@
 import { requireAdmin } from "@/lib/requireAdmin";
-import { createClient } from "@supabase/supabase-js";
-import { notFound } from "next/navigation";
-import EditProductForm from "./EditProductForm";
+import NewProductForm from "./NewProductForm";
 
 export const dynamic = "force-dynamic";
 
-function serviceSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
-}
-
-export default async function AdminEditProductPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function AdminNewProductPage() {
   await requireAdmin();
-
-  // 🔥 garde-fou (ça te dira direct si Next ne passe pas l’id)
-  if (!params?.id) {
-    notFound();
-  }
-
-  const supabase = serviceSupabase();
-
-  const { data: product, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("id", params.id)
-    .single();
-
-  if (error || !product) {
-    return (
-      <div className="py-16 text-sm text-black/60">
-        Produit introuvable (ou non accessible).
-        <div className="mt-2 text-xs text-black/40">{error?.message ?? ""}</div>
-      </div>
-    );
-  }
 
   return (
     <div className="py-12">
       <div className="text-xs uppercase tracking-[0.22em] text-black/40">
-        Admin · Produit
+        Admin · Produits
       </div>
+
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        Éditer : {product.title}
+        Nouveau produit
       </h1>
 
+      <p className="mt-3 text-sm text-black/60">
+        Ajoute les infos + les images (thumbnail et flipagram), puis publie.
+      </p>
+
       <div className="mt-10">
-        <EditProductForm product={product} />
+        <NewProductForm />
       </div>
     </div>
   );

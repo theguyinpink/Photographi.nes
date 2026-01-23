@@ -1,6 +1,9 @@
 import { requireAdmin } from "@/lib/requireAdmin";
-import EditProductForm from "./EditProductForm";
 import { createClient } from "@supabase/supabase-js";
+import { notFound } from "next/navigation";
+import EditProductForm from "./EditProductForm";
+
+export const dynamic = "force-dynamic";
 
 function serviceSupabase() {
   return createClient(
@@ -17,6 +20,11 @@ export default async function AdminEditProductPage({
 }) {
   await requireAdmin();
 
+  // 🔥 garde-fou (ça te dira direct si Next ne passe pas l’id)
+  if (!params?.id) {
+    notFound();
+  }
+
   const supabase = serviceSupabase();
 
   const { data: product, error } = await supabase
@@ -29,9 +37,7 @@ export default async function AdminEditProductPage({
     return (
       <div className="py-16 text-sm text-black/60">
         Produit introuvable (ou non accessible).
-        <div className="mt-2 text-xs text-black/40">
-          {error?.message ?? ""}
-        </div>
+        <div className="mt-2 text-xs text-black/40">{error?.message ?? ""}</div>
       </div>
     );
   }
