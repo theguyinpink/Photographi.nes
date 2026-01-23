@@ -92,7 +92,7 @@ export default async function ProductPage({
           {/* IMAGE */}
           <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
             <div className="p-4">
-              <div className="relative aspect-square w-full overflow-hidden rounded-[22px] bg-black/3">
+              <div className="relative aspect-square w-full overflow-hidden rounded-[22px] bg-black/[0.03]">
                 {/* Si tu préfères <img> comme sur shop, tu peux remplacer */}
                 <Image
                   src={imgSrc}
@@ -169,7 +169,7 @@ export default async function ProductPage({
                       className="flex items-start justify-between gap-4 border-b border-black/5 pb-2 last:border-b-0 last:pb-0"
                     >
                       <span className="text-black/45">{key}</span>
-                      <span className="max-w-[60%] wrap-break-word text-right text-black/80">
+                      <span className="max-w-[60%] break-words text-right text-black/80">
                         {value === null || value === undefined
                           ? "—"
                           : typeof value === "object"
