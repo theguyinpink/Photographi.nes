@@ -1,10 +1,6 @@
-// app/product/[id]/page.tsx
+// app/shop/page.tsx
 import Link from "next/link";
-import Image from "next/image";
-import { notFound } from "next/navigation";
-import { Shell } from "@/components/Shell";
 import { supabasePublic } from "@/lib/supabase-public";
-import AddToCartButton from "@/components/cart/AddToCartButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,181 +11,101 @@ type Product = {
   price_cents: number;
   currency: string | null;
   image_url: string | null;
-  created_at?: string;
-
-  // autres champs possibles (tu peux en ajouter ici si tu veux typage strict)
-  [key: string]: any;
 };
 
-function getParamId(params: Record<string, string | string[] | undefined>) {
-  // ✅ robuste : marche même si le dossier s’appelle [id] / [productId] / [uuid]
-  const raw =
-    params?.id ??
-    params?.productId ??
-    params?.uuid ??
-    params?.slug ??
-    undefined;
-
-  if (!raw) return null;
-  if (Array.isArray(raw)) return raw[0] ?? null;
-  return raw;
-}
-
-export default async function ProductPage({
-  params,
-}: {
-  params: Record<string, string | string[] | undefined>;
-}) {
-  // ✅ récupère l’id quel que soit le nom réel du segment
-  const id = getParamId(params);
-
-  // si pas d’id → 404 propre
-  if (!id) return notFound();
-
-  // ✅ récupère le produit
-  const { data: product, error } = await supabasePublic
+export default async function ShopPage() {
+  const { data, error } = await supabasePublic
     .from("products")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+    .select("id, title, price_cents, currency, image_url")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
-  // si erreur ou pas trouvé → 404
-  if (error || !product) return notFound();
+  if (error) {
+    return (
+      <div style={{ padding: 40 }}>
+        <h1>Erreur Supabase</h1>
+        <pre>{error.message}</pre>
+      </div>
+    );
+  }
 
-  const p = product as Product;
-
-  const imgSrc =
-    p.image_url && p.image_url.trim().length > 0 ? p.image_url : "/placeholder.png";
-
-  const price =
-    typeof p.price_cents === "number"
-      ? (p.price_cents / 100).toFixed(2)
-      : "—";
-
-  const currency = p.currency ?? "EUR";
+  const products = (data ?? []) as Product[];
 
   return (
-    <Shell>
-      <main className="pt-12 pb-24">
-        {/* top bar */}
-        <div className="flex items-center justify-between gap-4">
-          <Link
-            href="/shop"
-            className="text-sm text-black/55 hover:text-black/80 transition"
-          >
-            ← Retour à la boutique
-          </Link>
+    <div style={{ padding: 40 }}>
+      <h1 style={{ fontSize: 32, fontWeight: 600 }}>Boutique</h1>
+      <p style={{ marginTop: 8, color: "#555" }}>
+        Clique sur une photo pour ouvrir la fiche produit.
+      </p>
 
-          <Link
-            href="/cart"
-            className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/80 transition hover:bg-black/3"
-          >
-            Panier
-          </Link>
-        </div>
+      <div style={{ marginTop: 20 }}>
+        <Link href="/cart">→ Ouvrir le panier</Link>
+      </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-2">
-          {/* IMAGE */}
-          <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
-            <div className="p-4">
-              <div className="relative aspect-square w-full overflow-hidden rounded-[22px] bg-black/3">
-                {/* Si tu préfères <img> comme sur shop, tu peux remplacer */}
-                <Image
-                  src={imgSrc}
-                  alt={p.title ?? "Photo"}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  priority
+      {products.length === 0 ? (
+        <p style={{ marginTop: 40 }}>Aucun produit disponible.</p>
+      ) : (
+        <div
+          style={{
+            marginTop: 40,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 24,
+          }}
+        >
+          {products.map((p) => (
+            <Link
+              key={p.id}
+              href={`/product/${p.id}`}
+              style={{
+                display: "block",
+                border: "1px solid #ddd",
+                borderRadius: 16,
+                padding: 12,
+                textDecoration: "none",
+                color: "inherit",
+              }}
+            >
+              {p.image_url ? (
+                // volontairement <img>, PAS next/image pour éviter les 400
+                <img
+                  src={p.image_url}
+                  alt={p.title}
+                  style={{
+                    width: "100%",
+                    height: 180,
+                    objectFit: "contain",
+                    borderRadius: 12,
+                    background: "#f5f5f5",
+                  }}
                 />
-              </div>
-
-              <p className="mt-3 text-xs text-black/45">
-                Preview watermarkée (bucket previews)
-              </p>
-            </div>
-          </div>
-
-          {/* INFOS */}
-          <div>
-            <div className="text-xs uppercase tracking-[0.22em] text-black/40">
-              Produit
-            </div>
-
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-              {p.title ?? "Sans titre"}
-            </h1>
-
-            <div className="mt-4 text-lg font-semibold text-black/80">
-              {price} {currency}
-            </div>
-
-            {/* Description si dispo */}
-            {typeof p.description === "string" && p.description.trim().length > 0 ? (
-              <p className="mt-5 max-w-xl text-sm leading-6 text-black/60">
-                {p.description}
-              </p>
-            ) : null}
-
-            {/* Actions */}
-            <div className="mt-8 flex flex-wrap gap-3">
-              <AddToCartButton
-                product={{
-                  id: p.id,
-                  title: p.title ?? "Sans titre",
-                  image_url: p.image_url ?? "",
-                  price_cents: typeof p.price_cents === "number" ? p.price_cents : 0,
-                }}
-              />
-
-              <Link
-                href="/shop"
-                className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/80 transition hover:bg-black/3"
-              >
-                Continuer
-              </Link>
-            </div>
-
-            {/* Détails DB (temporaire, utile pour vérifier que tout remonte) */}
-            <div className="mt-10 overflow-hidden rounded-[28px] border border-black/10 bg-white">
-              <div className="px-6 py-5">
-                <div className="text-sm font-semibold text-black/80">
-                  Détails (DB)
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: 180,
+                    borderRadius: 12,
+                    background: "#eee",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#888",
+                  }}
+                >
+                  Pas d’image
                 </div>
-                <div className="mt-1 text-xs text-black/45">
-                  (Tu pourras remplacer par un layout plus joli une fois les champs finalisés)
+              )}
+
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontWeight: 600 }}>{p.title}</div>
+                <div style={{ marginTop: 4, color: "#555" }}>
+                  {(p.price_cents / 100).toFixed(2)} {p.currency ?? "EUR"}
                 </div>
               </div>
-
-              <div className="px-6 pb-6">
-                <div className="grid gap-2 text-sm">
-                  {Object.entries(p).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="flex items-start justify-between gap-4 border-b border-black/5 pb-2 last:border-b-0 last:pb-0"
-                    >
-                      <span className="text-black/45">{key}</span>
-                      <span className="max-w-[60%] wrap-break-word text-right text-black/80">
-                        {value === null || value === undefined
-                          ? "—"
-                          : typeof value === "object"
-                          ? JSON.stringify(value)
-                          : String(value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Note UX */}
-            <p className="mt-4 text-xs text-black/45">
-              Si tu veux, on remplace le bloc “Détails (DB)” par un affichage ultra clean
-              (sport, équipe, date, lieu, photographe, etc.).
-            </p>
-          </div>
+            </Link>
+          ))}
         </div>
-      </main>
-    </Shell>
+      )}
+    </div>
   );
 }
