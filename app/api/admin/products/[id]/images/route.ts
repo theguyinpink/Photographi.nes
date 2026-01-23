@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createClient } from "@supabase/supabase-js";
@@ -10,9 +10,7 @@ function serviceSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: { persistSession: false },
-    }
+    { auth: { persistSession: false } }
   );
 }
 
@@ -20,7 +18,6 @@ function safeFileName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9.\-_]/g, "-");
 }
 
-// watermark (simple et robuste)
 function makeWatermarkSVG(text: string) {
   const svg = `
   <svg width="1400" height="900" xmlns="http://www.w3.org/2000/svg">
@@ -40,83 +37,88 @@ function makeWatermarkSVG(text: string) {
 }
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> } // ✅ params est une Promise en Next 16
 ) {
   await requireAdmin();
+
+  const { id } = await context.params; // ✅ await ici
 
   const form = await req.formData();
   const original = form.get("original");
 
-  // ⚠️ plus robuste que instanceof File
   if (!(original instanceof Blob)) {
     return new NextResponse("Missing original file", { status: 400 });
   }
 
-  const arrayBuffer = await original.arrayBuffer();
-  const inputBuffer = Buffer.from(arrayBuffer);
+  const inputBuffer = Buffer.from(await original.arrayBuffer());
   const supabase = serviceSupabase();
-
-  const productId = params.id;
   const now = Date.now();
 
-  // 1) upload original (private bucket)
-  const originalPath = `originals/${productId}/${now}-${safeFileName(
+  const originalPath = `originals/${id}/${now}-${safeFileName(
     (original as any).name ?? "original.jpg"
   )}`;
 
+  // upload original (private)
   {
     const { error } = await supabase.storage
       .from("originals")
-      .upload(originalPath, new Blob([inputBuffer], { type: original.type || "image/jpeg" }), {
-        upsert: true,
-        contentType: original.type || "image/jpeg",
-      });
+      .upload(
+        originalPath,
+        new Blob([new Uint8Array(inputBuffer)], {
+          type: original.type || "image/jpeg",
+        }),
+        {
+          upsert: true,
+          contentType: original.type || "image/jpeg",
+        }
+      );
 
     if (error) return new NextResponse(error.message, { status: 400 });
   }
 
-  // 2) thumbnail
+  // thumbnail
   const thumbBuf = await sharp(inputBuffer)
     .resize({ width: 900, withoutEnlargement: true })
     .jpeg({ quality: 82 })
     .toBuffer();
 
-  const thumbPath = `thumbnails/${productId}/${now}-thumb.jpg`;
+  const thumbPath = `thumbnails/${id}/${now}-thumb.jpg`;
 
   {
     const { error } = await supabase.storage
       .from("public-images")
-      .upload(thumbPath, new Blob([new Uint8Array(thumbBuf)], { type: "image/jpeg" }), {
-        upsert: true,
-        contentType: "image/jpeg",
-      });
+      .upload(
+        thumbPath,
+        new Blob([new Uint8Array(thumbBuf)], { type: "image/jpeg" }),
+        { upsert: true, contentType: "image/jpeg" }
+      );
 
     if (error) return new NextResponse(error.message, { status: 400 });
   }
 
-  // 3) flipagram (watermark)
+  // flipagram (watermark)
   const wm = makeWatermarkSVG("photographi.nes");
   const flipBuf = await sharp(inputBuffer)
     .resize({ width: 1600, withoutEnlargement: true })
-    .composite([{ input: wm }]) // <-- plus stable que tile:true
+    .composite([{ input: wm }])
     .jpeg({ quality: 80 })
     .toBuffer();
 
-  const flipPath = `flip/${productId}/${now}-flip.jpg`;
+  const flipPath = `flip/${id}/${now}-flip.jpg`;
 
   {
     const { error } = await supabase.storage
       .from("previews")
-      .upload(flipPath, new Blob([new Uint8Array(flipBuf)], { type: "image/jpeg" }), {
-        upsert: true,
-        contentType: "image/jpeg",
-      });
+      .upload(
+        flipPath,
+        new Blob([new Uint8Array(flipBuf)], { type: "image/jpeg" }),
+        { upsert: true, contentType: "image/jpeg" }
+      );
 
     if (error) return new NextResponse(error.message, { status: 400 });
   }
 
-  // 4) urls
   const thumbnail_url = supabase.storage
     .from("public-images")
     .getPublicUrl(thumbPath).data.publicUrl;
@@ -125,11 +127,10 @@ export async function POST(
     .from("previews")
     .getPublicUrl(flipPath).data.publicUrl;
 
-  // 5) update product
   const { error: updErr } = await supabase
     .from("products")
     .update({ thumbnail_url, flipagram_url, original_path: originalPath })
-    .eq("id", productId);
+    .eq("id", id);
 
   if (updErr) return new NextResponse(updErr.message, { status: 400 });
 
