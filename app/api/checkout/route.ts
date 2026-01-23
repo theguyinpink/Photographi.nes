@@ -7,7 +7,6 @@ export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-// 🔒 Service role: serveur uniquement
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -18,6 +17,20 @@ type CheckoutItem = { id: string; qty: number };
 
 export async function POST(req: Request) {
   try {
+    // ✅ check env
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
+    }
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return NextResponse.json({ error: "Missing NEXT_PUBLIC_SUPABASE_URL" }, { status: 500 });
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 500 });
+    }
+    if (!process.env.NEXT_PUBLIC_SITE_URL) {
+      return NextResponse.json({ error: "Missing NEXT_PUBLIC_SITE_URL" }, { status: 500 });
+    }
+
     const body = await req.json();
     const items: CheckoutItem[] = Array.isArray(body.items) ? body.items : [];
 
@@ -26,31 +39,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Panier vide" }, { status: 400 });
     }
 
-    // ✅ total bundle en centimes
     const totalCents = calculateTotalPriceCents(photoCount);
     const currency = "eur";
 
-    // 1) ✅ crée la commande en DB
+    // ✅ insert order
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
         status: "pending",
         total_cents: totalCents,
         currency,
-        items,         // jsonb
+        items,
         photo_count: photoCount,
       })
       .select("id")
       .single();
 
     if (orderErr || !order?.id) {
-      console.error(orderErr);
-      return NextResponse.json({ error: "Erreur création commande" }, { status: 500 });
+      console.error("Supabase insert order error:", orderErr);
+      return NextResponse.json(
+        { error: "Supabase order insert failed", details: orderErr },
+        { status: 500 }
+      );
     }
 
     const orderId = order.id as string;
 
-    // 2) ✅ crée la session Stripe, on attache l’order_id
+    // ✅ create stripe session
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -58,9 +73,7 @@ export async function POST(req: Request) {
         {
           price_data: {
             currency,
-            product_data: {
-              name: `${photoCount} photo(s) PhotographI.nes`,
-            },
+            product_data: { name: `${photoCount} photo(s) PhotographI.nes` },
             unit_amount: totalCents,
           },
           quantity: 1,
@@ -72,17 +85,20 @@ export async function POST(req: Request) {
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/cart`,
     });
 
-    // 3) ✅ sauvegarde l'id de session Stripe dans la commande
+    // ✅ update stripe_session_id
     const { error: updErr } = await supabaseAdmin
       .from("orders")
       .update({ stripe_session_id: session.id })
       .eq("id", orderId);
 
-    if (updErr) console.error("Order update error:", updErr);
+    if (updErr) console.error("Supabase update order error:", updErr);
 
     return NextResponse.json({ url: session.url });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Checkout error:", err);
-    return NextResponse.json({ error: "Erreur checkout" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Checkout crashed", message: err?.message ?? String(err) },
+      { status: 500 }
+    );
   }
 }
