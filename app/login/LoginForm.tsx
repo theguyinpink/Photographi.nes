@@ -14,19 +14,20 @@ export default function LoginForm() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabasePublic.auth.signInWithPassword({
-      email,
-      password,
+    const r = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
     });
 
     setLoading(false);
 
-    if (error) {
-      alert(error.message);
+    if (!r.ok) {
+      const data = await r.json().catch(() => null);
+      alert(data?.message ?? "Connexion impossible");
       return;
     }
 
-    // ✅ maintenant ça marche AVEC middleware
     router.push("/admin");
     router.refresh();
   }
