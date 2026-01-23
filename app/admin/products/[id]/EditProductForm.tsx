@@ -289,7 +289,7 @@ export default function EditProductForm({ product }: { product?: Product | null 
               <textarea
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
-                className="mt-1 min-h-[120px] w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-400"
+                className="mt-1 min-h-30 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-400"
               />
             </div>
           </div>
