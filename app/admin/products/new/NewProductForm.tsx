@@ -3,23 +3,266 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+type FormState = {
+  title: string;
+  price: string;
+  sport: string;
+  team: string;
+  person: string;
+  taken_at: string; // yyyy-mm-dd
+  description: string;
+};
+
+export default function NewProductForm() {
+  const router = useRouter();
+
+  const [form, setForm] = useState<FormState>({
+    title: "",
+    price: "8.00",
+    sport: "",
+    team: "",
+    person: "",
+    taken_at: "",
+    description: "",
+  });
+
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSubmit = useMemo(() => {
+    return (
+      form.title.trim().length >= 2 &&
+      Number(form.price) > 0 &&
+      !!file
+    );
+  }, [form, file]);
+
+  function onChange<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((p) => ({ ...p, [key]: value }));
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!file) {
+      setError("Ajoute une image watermarkée.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      // 1) Créer le produit (sans image_url)
+      const createRes = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          price: Number(form.price),
+          sport: form.sport.trim() || null,
+          team: form.team.trim() || null,
+          person: form.person.trim() || null,
+          taken_at: form.taken_at ? new Date(form.taken_at).toISOString() : null,
+          description: form.description.trim() || null,
+        }),
+      });
+
+      if (!createRes.ok) {
+        const t = await createRes.text().catch(() => "Erreur");
+        throw new Error(t);
+      }
+
+      const created = await createRes.json();
+      const id: string | undefined = created?.id;
+      if (!id) throw new Error("ID produit manquant.");
+
+      // 2) Upload de l'image watermarkée
+      const fd = new FormData();
+      fd.append("image", file);
+
+      const uploadRes = await fetch(`/api/admin/products/${id}/image`, {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!uploadRes.ok) {
+        const t = await uploadRes.text().catch(() => "Erreur upload");
+        throw new Error(t);
+      }
+
+      // 3) Done -> retour liste admin
+      router.push("/admin/products");
+      router.refresh();
+    } catch (err: any) {
+      setError(err?.message || "Une erreur est survenue.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-3xl">
+      <div className="rounded-[28px] border border-black/10 bg-white p-7 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+        <div className="mb-7">
+          <div className="text-xs uppercase tracking-[0.22em] text-black/40">
+            Admin • Nouveau produit
+          </div>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-black">
+            Ajouter une photo
+          </h1>
+          <p className="mt-2 text-sm text-black/60">
+            Upload 1 seule image déjà watermarkée. Elle sera affichée partout (boutique, panier, produit).
+          </p>
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-6">
+          {/* Grid */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Titre">
+              <Input
+                value={form.title}
+                onChange={(e) => onChange("title", e.target.value)}
+                placeholder="Ex: Charlène Carré"
+              />
+            </Field>
+
+            <Field label="Prix (EUR)">
+              <Input
+                value={form.price}
+                onChange={(e) => onChange("price", e.target.value)}
+                inputMode="decimal"
+                placeholder="8.00"
+              />
+            </Field>
+
+            <Field label="Sport / Événement">
+              <Input
+                value={form.sport}
+                onChange={(e) => onChange("sport", e.target.value)}
+                placeholder="Ex: Basket"
+              />
+            </Field>
+
+            <Field label="Équipe">
+              <Input
+                value={form.team}
+                onChange={(e) => onChange("team", e.target.value)}
+                placeholder="Ex: Paris Basketball"
+              />
+            </Field>
+
+            <Field label="Personne">
+              <Input
+                value={form.person}
+                onChange={(e) => onChange("person", e.target.value)}
+                placeholder="Ex: TJ Shorts"
+              />
+            </Field>
+
+            <Field label="Photo prise le">
+              <Input
+                type="date"
+                value={form.taken_at}
+                onChange={(e) => onChange("taken_at", e.target.value)}
+              />
+            </Field>
+          </div>
+
+          <Field label="Description">
+            <textarea
+              value={form.description}
+              onChange={(e) => onChange("description", e.target.value)}
+              placeholder="Quelques mots sur la photo, le contexte…"
+              className="min-h-27.5 w-full resize-none rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-black/30"
+            />
+          </Field>
+
+          {/* Upload */}
+          <div className="rounded-2xl border border-black/10 bg-black/2 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="text-sm font-medium text-black">
+                  Image watermarkée
+                </div>
+                <div className="text-xs text-black/55">
+                  PNG/JPG — déjà filigranée (logo répété). C’est celle qui sera affichée sur le site.
+                </div>
+              </div>
+
+              <label className="group inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm shadow-sm transition hover:border-black/20 hover:bg-black hover:text-white">
+                <span className="font-medium">
+                  {file ? "Changer l’image" : "Choisir un fichier"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            </div>
+
+            {file ? (
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-black/10 bg-white px-4 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-black">
+                    {file.name}
+                  </div>
+                  <div className="text-xs text-black/50">
+                    {(file.size / (1024 * 1024)).toFixed(2)} Mo
+                  </div>
+                </div>
+                <div className="text-xs text-black/40">Prêt</div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Error */}
+          {error ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          {/* Actions */}
+          <div className="flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
+            <button
+              type="button"
+              onClick={() => router.push("/admin/products")}
+              className="rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm text-black shadow-sm transition hover:border-black/20"
+            >
+              Retour
+            </button>
+
+            <button
+              type="submit"
+              disabled={!canSubmit || busy}
+              className="rounded-full bg-black px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? "Création…" : "Créer le produit"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function Field({
   label,
-  hint,
   children,
 }: {
   label: string;
-  hint?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-4">
-        <label className="text-sm font-semibold">{label}</label>
-        {hint ? <span className="text-xs text-black/40">{hint}</span> : null}
+    <label className="block">
+      <div className="mb-2 text-xs uppercase tracking-[0.18em] text-black/40">
+        {label}
       </div>
-      <div className="mt-2">{children}</div>
-    </div>
+      {children}
+    </label>
   );
 }
 
@@ -27,240 +270,11 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={
-        "w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 " +
-        (props.className ?? "")
-      }
+      className={[
+        "h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm text-black",
+        "outline-none transition focus:border-black/30",
+        props.className ?? "",
+      ].join(" ")}
     />
-  );
-}
-
-function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={
-        "w-full min-h-30 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 " +
-        (props.className ?? "")
-      }
-    />
-  );
-}
-
-export default function NewProductForm() {
-  const router = useRouter();
-  const [creating, setCreating] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  const [title, setTitle] = useState("");
-  const [priceEUR, setPriceEUR] = useState("0.00");
-  const [isActive, setIsActive] = useState(true);
-
-  const [sport, setSport] = useState("");
-  const [team, setTeam] = useState("");
-  const [person, setPerson] = useState("");
-  const [takenAt, setTakenAt] = useState("");
-  const [description, setDescription] = useState("");
-
-  const [thumbFile, setThumbFile] = useState<File | null>(null);
-  const [flipFile, setFlipFile] = useState<File | null>(null);
-
-  const priceCents = useMemo(() => {
-    const v = Number(String(priceEUR).replace(",", "."));
-    if (!Number.isFinite(v)) return 0;
-    return Math.max(0, Math.round(v * 100));
-  }, [priceEUR]);
-
-  async function uploadThumbAndFlip() {
-    if (!thumbFile || !flipFile) {
-      throw new Error("Il faut choisir un thumbnail + un flipagram.");
-    }
-
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("thumbnail", thumbFile);
-    fd.append("flipagram", flipFile);
-
-    const r = await fetch("/api/admin/uploads", { method: "POST", body: fd });
-    setUploading(false);
-
-    if (!r.ok) throw new Error(await r.text());
-    return (await r.json()) as { thumbnail_url: string; flipagram_url: string };
-  }
-
-  async function createProduct() {
-    setCreating(true);
-
-    try {
-      // 1) upload images -> urls
-      const { thumbnail_url, flipagram_url } = await uploadThumbAndFlip();
-
-      // 2) create product in DB
-      const r = await fetch("/api/admin/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || "Sans titre",
-          price_cents: priceCents,
-          is_active: isActive,
-          sport: sport.trim() || null,
-          team: team.trim() || null,
-          person: person.trim() || null,
-          taken_at: takenAt || null,
-          description: description.trim() || null,
-          thumbnail_url,
-          flipagram_url,
-        }),
-      });
-
-      if (!r.ok) {
-        throw new Error(await r.text());
-      }
-
-      const data = await r.json();
-      if (!data?.id || typeof data.id !== "string") {
-        console.error("API response:", data);
-        throw new Error(
-          "Création OK mais l'ID est manquant. Vérifie POST /api/admin/products.",
-        );
-      }
-      router.push(`/admin/products/${data.id}`);
-      router.refresh(); // ✅ force re-fetch des Server Components
-    } catch (e: any) {
-      alert(e?.message ?? "Erreur création");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  return (
-    <div className="grid gap-8 lg:grid-cols-12">
-      {/* Aperçu */}
-      <div className="lg:col-span-5">
-        <div className="rounded-[28px] border border-black/10 bg-white p-6">
-          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Images
-          </div>
-
-          <div className="mt-5 space-y-5">
-            <div>
-              <div className="text-sm font-semibold">Thumbnail (boutique)</div>
-              <p className="mt-1 text-xs text-black/40">
-                L’image nette utilisée dans la grille.
-              </p>
-              <div className="mt-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setThumbFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm font-semibold">
-                Flipagram (aperçu protégé)
-              </div>
-              <p className="mt-1 text-xs text-black/40">
-                L’image watermarkée affichée sur le site.
-              </p>
-              <div className="mt-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setFlipFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-            </div>
-
-            {uploading ? (
-              <div className="text-xs text-black/50">Upload en cours…</div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      {/* Form */}
-      <div className="lg:col-span-7">
-        <div className="rounded-[28px] border border-black/10 bg-white p-6">
-          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Infos
-          </div>
-
-          <div className="mt-6 grid gap-6">
-            <Field label="Titre">
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-            </Field>
-
-            <div className="grid gap-6 sm:grid-cols-2">
-              <Field label="Prix (€)">
-                <Input
-                  value={priceEUR}
-                  onChange={(e) => setPriceEUR(e.target.value)}
-                />
-              </Field>
-
-              <Field label="Statut" hint="visible dans la boutique">
-                <button
-                  type="button"
-                  onClick={() => setIsActive((v) => !v)}
-                  className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold ${
-                    isActive
-                      ? "bg-black text-white"
-                      : "border border-black/10 bg-black/3 text-black/70"
-                  }`}
-                >
-                  {isActive ? "Actif" : "Inactif"}
-                </button>
-              </Field>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-3">
-              <Field label="Sport" hint="ex: Basket">
-                <Input
-                  value={sport}
-                  onChange={(e) => setSport(e.target.value)}
-                />
-              </Field>
-              <Field label="Équipe" hint="ex: PSG">
-                <Input value={team} onChange={(e) => setTeam(e.target.value)} />
-              </Field>
-              <Field label="Personne" hint="ex: Wembanyama">
-                <Input
-                  value={person}
-                  onChange={(e) => setPerson(e.target.value)}
-                />
-              </Field>
-            </div>
-
-            <Field label="Photo prise le">
-              <Input
-                type="date"
-                value={takenAt}
-                onChange={(e) => setTakenAt(e.target.value)}
-              />
-            </Field>
-
-            <Field label="Description" hint="affichée sur la page produit">
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </Field>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={createProduct}
-                disabled={creating}
-                className="rounded-2xl bg-black px-6 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {creating ? "Création…" : "Créer le produit"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
