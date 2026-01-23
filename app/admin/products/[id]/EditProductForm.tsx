@@ -3,255 +3,225 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Product = {
-  id: string;
+type FormState = {
   title: string;
-  price_cents: number;
+  price: string;
+  description: string;
+  sport: string;
+  team: string;
+  person: string;
+  taken_at: string;
   is_active: boolean;
-  description: string | null;
-  sport: string | null;
-  team: string | null;
-  person: string | null;
-  taken_at: string | null;
-  thumbnail_url: string | null;
-  flipagram_url: string | null;
 };
+export default function EditProductForm({ product }: { product: any }) {
+  const router = useRouter();
+
+  const [form, setForm] = useState<FormState>({
+    title: "",
+    price: "8",
+    description: "",
+    sport: "",
+    team: "",
+    person: "",
+    taken_at: "",
+    is_active: true,
+  });
+
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const canSubmit = useMemo(() => {
+    return form.title.trim().length > 0 && !!file && !busy;
+  }, [form.title, file, busy]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+
+    if (!file) {
+      setMsg("Ajoute une image (watermarkée) avant de créer le produit.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      // 1) create product
+      const r1 = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          price: form.price,
+          description: form.description || null,
+          sport: form.sport || null,
+          team: form.team || null,
+          person: form.person || null,
+          taken_at: form.taken_at || null,
+          is_active: form.is_active,
+          currency: "EUR",
+        }),
+      });
+
+      if (!r1.ok) throw new Error(await r1.text());
+      const { id } = await r1.json();
+
+      // 2) upload image (FormData to avoid payload limit)
+      const fd = new FormData();
+      fd.append("image", file);
+
+      const r2 = await fetch(`/api/admin/products/${id}/image`, {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!r2.ok) throw new Error(await r2.text());
+
+      setMsg("Produit créé ✅");
+      router.push("/admin/products");
+      router.refresh();
+    } catch (err: any) {
+      setMsg(err?.message ?? "Erreur inconnue");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-6">
+      {msg ? (
+        <div className="rounded-2xl border border-black/10 bg-white px-5 py-4 text-sm text-black/70">
+          {msg}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <Field label="Titre">
+          <input
+            value={form.title}
+            onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))}
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/20"
+            placeholder="Ex: Finale — Paris vs …"
+            required
+          />
+        </Field>
+
+        <Field label="Prix (EUR)">
+          <input
+            value={form.price}
+            onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))}
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/20"
+            inputMode="decimal"
+            placeholder="8"
+          />
+        </Field>
+
+        <Field label="Sport (catégorie)">
+          <input
+            value={form.sport}
+            onChange={(e) => setForm((s) => ({ ...s, sport: e.target.value }))}
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/20"
+            placeholder="Basket, Foot…"
+          />
+        </Field>
+
+        <Field label="Équipe">
+          <input
+            value={form.team}
+            onChange={(e) => setForm((s) => ({ ...s, team: e.target.value }))}
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/20"
+            placeholder="PSG, Spurs…"
+          />
+        </Field>
+
+        <Field label="Personne">
+          <input
+            value={form.person}
+            onChange={(e) => setForm((s) => ({ ...s, person: e.target.value }))}
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/20"
+            placeholder="Nom du joueur / portrait…"
+          />
+        </Field>
+
+        <Field label="Photo prise le…">
+          <input
+            value={form.taken_at}
+            onChange={(e) =>
+              setForm((s) => ({ ...s, taken_at: e.target.value }))
+            }
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/20"
+            type="date"
+          />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea
+          value={form.description}
+          onChange={(e) =>
+            setForm((s) => ({ ...s, description: e.target.value }))
+          }
+          className="min-h-27.5 w-full rounded-3xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/20"
+          placeholder="Infos, contexte, lieu, etc."
+        />
+      </Field>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="inline-flex items-center gap-3 text-sm text-black/70">
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(e) =>
+              setForm((s) => ({ ...s, is_active: e.target.checked }))
+            }
+            className="h-4 w-4"
+          />
+          Actif (visible en boutique)
+        </label>
+
+        {/* File button stylé */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black/80 transition hover:bg-black/3">
+            {file ? "Image sélectionnée ✅" : "Choisir une image (watermarkée)"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="inline-flex items-center justify-center rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white transition disabled:opacity-40"
+          >
+            {busy ? "Création…" : "Créer le produit"}
+          </button>
+        </div>
+      </div>
+
+      <p className="text-xs text-black/45">
+        L’image doit déjà être watermarkée (flipagram). Elle sera utilisée
+        partout : boutique, panier, page produit.
+      </p>
+    </form>
+  );
+}
 
 function Field({
   label,
-  hint,
   children,
 }: {
   label: string;
-  hint?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-4">
-        <label className="text-sm font-semibold">{label}</label>
-        {hint ? <span className="text-xs text-black/40">{hint}</span> : null}
+    <div className="space-y-2">
+      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-black/40">
+        {label}
       </div>
-      <div className="mt-2">{children}</div>
-    </div>
-  );
-}
-
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={
-        "w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 " +
-        (props.className ?? "")
-      }
-    />
-  );
-}
-
-function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={
-        "w-full min-h-30 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 " +
-        (props.className ?? "")
-      }
-    />
-  );
-}
-
-export default function EditProductForm({ product }: { product: Product }) {
-  const router = useRouter();
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  const [title, setTitle] = useState(product.title ?? "");
-  const [priceEUR, setPriceEUR] = useState((product.price_cents / 100).toFixed(2));
-  const [isActive, setIsActive] = useState(!!product.is_active);
-
-  const [sport, setSport] = useState(product.sport ?? "");
-  const [team, setTeam] = useState(product.team ?? "");
-  const [person, setPerson] = useState(product.person ?? "");
-  const [takenAt, setTakenAt] = useState(product.taken_at ?? "");
-  const [description, setDescription] = useState(product.description ?? "");
-
-  const priceCents = useMemo(() => {
-    const v = Number(String(priceEUR).replace(",", "."));
-    if (!Number.isFinite(v)) return 0;
-    return Math.max(0, Math.round(v * 100));
-  }, [priceEUR]);
-
-  async function save() {
-    setSaving(true);
-
-    const r = await fetch(`/api/admin/products/${product.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        price_cents: priceCents,
-        is_active: isActive,
-        sport: sport.trim() || null,
-        team: team.trim() || null,
-        person: person.trim() || null,
-        taken_at: takenAt || null,
-        description: description.trim() || null,
-      }),
-    });
-
-    setSaving(false);
-
-    if (!r.ok) {
-      const t = await r.text();
-      alert(t || "Erreur sauvegarde");
-      return;
-    }
-
-    router.refresh();
-  }
-
-  async function uploadOriginal(file: File) {
-    setUploading(true);
-
-    const fd = new FormData();
-    fd.append("original", file);
-
-    const r = await fetch(`/api/admin/products/${product.id}/images`, {
-      method: "POST",
-      body: fd,
-    });
-
-    setUploading(false);
-
-    if (!r.ok) {
-      const t = await r.text();
-      alert(t || "Erreur upload");
-      return;
-    }
-
-    router.refresh();
-  }
-
-  return (
-    <div className="grid gap-8 lg:grid-cols-12">
-      {/* Colonne gauche : aperçu */}
-      <div className="lg:col-span-5">
-        <div className="rounded-[28px] border border-black/10 bg-white p-5">
-          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Aperçu
-          </div>
-
-          <div className="mt-4 overflow-hidden rounded-2xl border border-black/10 bg-black/2 p-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={product.flipagram_url || product.thumbnail_url || ""}
-              alt={title}
-              className="w-full h-auto object-contain"
-            />
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            <div className="text-sm font-semibold">{title || "Sans titre"}</div>
-            <div className="text-sm text-black/60">
-              Prix: <span className="font-semibold">{(priceCents / 100).toFixed(2)} €</span>
-              {" · "}
-              Statut: <span className="font-semibold">{isActive ? "Actif" : "Inactif"}</span>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <label className="text-sm font-semibold">Upload original</label>
-            <p className="mt-1 text-xs text-black/40">
-              On génère automatiquement le thumbnail + flipagram.
-            </p>
-
-            <div className="mt-3">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) uploadOriginal(f);
-                }}
-              />
-              {uploading ? (
-                <div className="mt-2 text-xs text-black/50">Upload en cours…</div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Colonne droite : formulaire */}
-      <div className="lg:col-span-7">
-        <div className="rounded-[28px] border border-black/10 bg-white p-6">
-          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Détails
-          </div>
-
-          <div className="mt-6 grid gap-6">
-            <Field label="Titre">
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-            </Field>
-
-            <div className="grid gap-6 sm:grid-cols-2">
-              <Field label="Prix (€)" hint="sera converti en centimes">
-                <Input value={priceEUR} onChange={(e) => setPriceEUR(e.target.value)} />
-              </Field>
-
-              <Field label="Actif" hint="visible dans la boutique">
-                <button
-                  type="button"
-                  onClick={() => setIsActive((v) => !v)}
-                  className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold ${
-                    isActive
-                      ? "bg-black text-white"
-                      : "border border-black/10 bg-black/3 text-black/70"
-                  }`}
-                >
-                  {isActive ? "Actif" : "Inactif"}
-                </button>
-              </Field>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-3">
-              <Field label="Sport" hint="ex: Basket">
-                <Input value={sport} onChange={(e) => setSport(e.target.value)} />
-              </Field>
-              <Field label="Équipe" hint="ex: PSG">
-                <Input value={team} onChange={(e) => setTeam(e.target.value)} />
-              </Field>
-              <Field label="Personne" hint="ex: Wembanyama">
-                <Input value={person} onChange={(e) => setPerson(e.target.value)} />
-              </Field>
-            </div>
-
-            <Field label="Date (shoot)">
-              <Input
-                type="date"
-                value={takenAt || ""}
-                onChange={(e) => setTakenAt(e.target.value)}
-              />
-            </Field>
-
-            <Field label="Description" hint="affichée sur la page produit">
-              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
-            </Field>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-              <button
-                type="button"
-                onClick={save}
-                disabled={saving}
-                className="rounded-2xl bg-black px-6 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {saving ? "Sauvegarde…" : "Enregistrer"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {children}
     </div>
   );
 }

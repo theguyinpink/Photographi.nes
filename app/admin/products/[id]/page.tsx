@@ -1,3 +1,4 @@
+// app/admin/products/[id]/page.tsx
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
@@ -13,25 +14,43 @@ function serviceSupabase() {
   );
 }
 
+type Product = {
+  id: string;
+  title: string;
+  price_cents: number;
+  currency: string | null;
+  image_url: string | null;
+  description: string | null;
+  sport: string | null;
+  team: string | null;
+  person: string | null;
+  taken_at: string | null;
+  is_active: boolean;
+  created_at?: string | null;
+};
+
 export default async function AdminEditProductPage({
   params,
 }: {
-  params: { id: string };
+  // ✅ Next 16 peut fournir params en Promise
+  params: Promise<{ id: string }>;
 }) {
   await requireAdmin();
 
-  // 🔥 garde-fou (ça te dira direct si Next ne passe pas l’id)
-  if (!params?.id) {
-    notFound();
-  }
+  const { id } = await params;
+  if (!id) notFound();
 
   const supabase = serviceSupabase();
 
-  const { data: product, error } = await supabase
+  const { data, error } = await supabase
     .from("products")
-    .select("*")
-    .eq("id", params.id)
+    .select(
+      "id,title,price_cents,currency,image_url,description,sport,team,person,taken_at,is_active,created_at"
+    )
+    .eq("id", id)
     .single();
+
+  const product = (data ?? null) as Product | null;
 
   if (error || !product) {
     return (
@@ -52,6 +71,7 @@ export default async function AdminEditProductPage({
       </h1>
 
       <div className="mt-10">
+        {/* ⚠️ Ceci nécessite que EditProductForm accepte la prop product */}
         <EditProductForm product={product} />
       </div>
     </div>

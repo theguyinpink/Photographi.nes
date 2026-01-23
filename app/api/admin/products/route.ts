@@ -13,7 +13,6 @@ function serviceSupabase() {
 }
 
 function eurosToCents(value: any) {
-  // accepte "8", "8.00", 8, etc.
   const n = Number(String(value).replace(",", "."));
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.round(n * 100);
@@ -29,14 +28,15 @@ export async function POST(req: NextRequest) {
     .from("products")
     .insert({
       title: body.title ?? "Sans titre",
-      price_cents: eurosToCents(body.price), // ✅ conversion ici
-      is_active: body.is_active ?? true,     // ✅ par défaut true (modifiable)
+      price_cents: eurosToCents(body.price),
+      is_active: body.is_active ?? true,
       description: body.description ?? null,
       sport: body.sport ?? null,
       team: body.team ?? null,
       person: body.person ?? null,
       taken_at: body.taken_at ?? null,
-      image_url: null, // ✅ sera rempli après upload via /image
+      image_url: null,
+      currency: body.currency ?? "EUR",
     })
     .select("id")
     .single();

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function serviceSupabase() {
@@ -19,7 +18,7 @@ function safeFileName(name: string) {
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> } // Next 16 params = Promise
 ) {
   await requireAdmin();
   const { id } = await context.params;
@@ -32,32 +31,37 @@ export async function POST(
   }
 
   const supabase = serviceSupabase();
-  const now = Date.now();
-  const filename = safeFileName((file as any).name ?? "image.jpg");
-  const path = `products/${id}/${now}-${filename}`;
 
-  // bucket public conseillé: "previews" (tu peux changer le nom si tu as un autre bucket)
-  const bucket = "previews";
+  // ✅ Bucket public où on met les previews watermarkées
+  const bucket = "previews"; // <- vérifie que ce bucket existe
 
-  const { error: upErr } = await supabase.storage.from(bucket).upload(
-    path,
-    file,
-    {
+  const ext =
+    (file as any).name?.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `products/${id}/${Date.now()}-${safeFileName(
+    (file as any).name ?? `image.${ext}`
+  )}`;
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  const { error: upErr } = await supabase.storage
+    .from(bucket)
+    .upload(path, new Blob([bytes], { type: file.type || "image/jpeg" }), {
       upsert: true,
       contentType: file.type || "image/jpeg",
-    }
-  );
+    });
 
   if (upErr) return new NextResponse(upErr.message, { status: 400 });
 
-  const image_url = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  const image_url = supabase.storage
+    .from(bucket)
+    .getPublicUrl(path).data.publicUrl;
 
   const { error: dbErr } = await supabase
-  .from("products")
-  .update({ image_url })
-  .eq("id", id);
+    .from("products")
+    .update({ image_url })
+    .eq("id", id);
 
   if (dbErr) return new NextResponse(dbErr.message, { status: 400 });
 
-  return NextResponse.json({ image_url, path });
+  return NextResponse.json({ image_url });
 }
