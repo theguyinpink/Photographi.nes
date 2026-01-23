@@ -101,7 +101,7 @@ export async function POST(
   const wm = makeWatermarkSVG("photographi.nes");
   const flipBuf = await sharp(inputBuffer)
     .resize({ width: 1600, withoutEnlargement: true })
-    .composite([{ input: wm }])
+    .composite([{ input: wm, tile: true }])
     .jpeg({ quality: 80 })
     .toBuffer();
 

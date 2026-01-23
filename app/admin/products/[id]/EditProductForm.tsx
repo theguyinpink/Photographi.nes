@@ -1,167 +1,253 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Product = {
   id: string;
   title: string;
   price_cents: number;
-  currency: string;
-  category: string | null;
   is_active: boolean;
+  description: string | null;
+  sport: string | null;
+  team: string | null;
+  person: string | null;
+  taken_at: string | null;
   thumbnail_url: string | null;
   flipagram_url: string | null;
 };
 
-export default function EditProductForm({ product }: { product: Product }) {
-  const [title, setTitle] = useState(product.title);
-  const [price, setPrice] = useState((product.price_cents / 100).toFixed(2));
-  const [category, setCategory] = useState(product.category ?? "");
-  const [isActive, setIsActive] = useState(product.is_active);
-  const [loading, setLoading] = useState(false);
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4">
+        <label className="text-sm font-semibold">{label}</label>
+        {hint ? <span className="text-xs text-black/40">{hint}</span> : null}
+      </div>
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+}
 
-  const [file, setFile] = useState<File | null>(null);
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={
+        "w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 " +
+        (props.className ?? "")
+      }
+    />
+  );
+}
+
+function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      className={
+        "w-full min-h-30 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 " +
+        (props.className ?? "")
+      }
+    />
+  );
+}
+
+export default function EditProductForm({ product }: { product: Product }) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  const [title, setTitle] = useState(product.title ?? "");
+  const [priceEUR, setPriceEUR] = useState((product.price_cents / 100).toFixed(2));
+  const [isActive, setIsActive] = useState(!!product.is_active);
+
+  const [sport, setSport] = useState(product.sport ?? "");
+  const [team, setTeam] = useState(product.team ?? "");
+  const [person, setPerson] = useState(product.person ?? "");
+  const [takenAt, setTakenAt] = useState(product.taken_at ?? "");
+  const [description, setDescription] = useState(product.description ?? "");
+
+  const priceCents = useMemo(() => {
+    const v = Number(String(priceEUR).replace(",", "."));
+    if (!Number.isFinite(v)) return 0;
+    return Math.max(0, Math.round(v * 100));
+  }, [priceEUR]);
+
   async function save() {
-    setLoading(true);
-    const res = await fetch(`/api/admin/products/${product.id}`, {
+    setSaving(true);
+
+    const r = await fetch(`/api/admin/products/${product.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title,
-        price_cents: Math.round(Number(price) * 100),
-        category: category || null,
+        price_cents: priceCents,
         is_active: isActive,
+        sport: sport.trim() || null,
+        team: team.trim() || null,
+        person: person.trim() || null,
+        taken_at: takenAt || null,
+        description: description.trim() || null,
       }),
     });
-    setLoading(false);
 
-    if (!res.ok) {
-      alert(await res.text());
+    setSaving(false);
+
+    if (!r.ok) {
+      const t = await r.text();
+      alert(t || "Erreur sauvegarde");
       return;
     }
-    alert("Sauvegardé ✅");
+
+    router.refresh();
   }
 
-  async function uploadOriginalAndGenerate() {
-    if (!file) return alert("Choisis une photo HD");
+  async function uploadOriginal(file: File) {
     setUploading(true);
 
     const fd = new FormData();
     fd.append("original", file);
 
-    const res = await fetch(`/api/admin/products/${product.id}/images`, {
+    const r = await fetch(`/api/admin/products/${product.id}/images`, {
       method: "POST",
       body: fd,
     });
 
     setUploading(false);
 
-    if (!res.ok) {
-      alert(await res.text());
+    if (!r.ok) {
+      const t = await r.text();
+      alert(t || "Erreur upload");
       return;
     }
-    alert("Images générées + liées ✅ (refresh la page)");
+
+    router.refresh();
   }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-2">
-      {/* Infos */}
-      <div className="rounded-3xl border border-black/10 bg-white p-8">
-        <div className="text-sm font-semibold">Détails</div>
+    <div className="grid gap-8 lg:grid-cols-12">
+      {/* Colonne gauche : aperçu */}
+      <div className="lg:col-span-5">
+        <div className="rounded-[28px] border border-black/10 bg-white p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
+            Aperçu
+          </div>
 
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm text-black/60 mb-1">Titre</label>
-            <input
-              className="w-full rounded-xl border border-black/10 px-4 py-3"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+          <div className="mt-4 overflow-hidden rounded-2xl border border-black/10 bg-black/2 p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={product.flipagram_url || product.thumbnail_url || ""}
+              alt={title}
+              className="w-full h-auto object-contain"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-black/60 mb-1">Prix (€)</label>
-              <input
-                className="w-full rounded-xl border border-black/10 px-4 py-3"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-black/60 mb-1">Catégorie</label>
-              <input
-                className="w-full rounded-xl border border-black/10 px-4 py-3"
-                placeholder="sport / équipe / personne"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              />
+          <div className="mt-5 grid gap-3">
+            <div className="text-sm font-semibold">{title || "Sans titre"}</div>
+            <div className="text-sm text-black/60">
+              Prix: <span className="font-semibold">{(priceCents / 100).toFixed(2)} €</span>
+              {" · "}
+              Statut: <span className="font-semibold">{isActive ? "Actif" : "Inactif"}</span>
             </div>
           </div>
 
-          <label className="flex items-center gap-3 text-sm text-black/70">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-            />
-            Produit actif (visible boutique)
-          </label>
+          <div className="mt-6">
+            <label className="text-sm font-semibold">Upload original</label>
+            <p className="mt-1 text-xs text-black/40">
+              On génère automatiquement le thumbnail + flipagram.
+            </p>
 
-          <button
-            onClick={save}
-            disabled={loading}
-            className="rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {loading ? "Sauvegarde..." : "Sauvegarder"}
-          </button>
+            <div className="mt-3">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadOriginal(f);
+                }}
+              />
+              {uploading ? (
+                <div className="mt-2 text-xs text-black/50">Upload en cours…</div>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Images */}
-      <div className="rounded-3xl border border-black/10 bg-white p-8">
-        <div className="text-sm font-semibold">Images</div>
-        <p className="mt-2 text-sm text-black/60">
-          Upload une photo HD. On génère automatiquement le thumbnail + flipagram.
-        </p>
+      {/* Colonne droite : formulaire */}
+      <div className="lg:col-span-7">
+        <div className="rounded-[28px] border border-black/10 bg-white p-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
+            Détails
+          </div>
 
-        <div className="mt-6 space-y-4">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
+          <div className="mt-6 grid gap-6">
+            <Field label="Titre">
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            </Field>
 
-          <button
-            onClick={uploadOriginalAndGenerate}
-            disabled={uploading}
-            className="rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/80 hover:bg-black/3 disabled:opacity-50"
-          >
-            {uploading ? "Génération..." : "Uploader & générer"}
-          </button>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <Field label="Prix (€)" hint="sera converti en centimes">
+                <Input value={priceEUR} onChange={(e) => setPriceEUR(e.target.value)} />
+              </Field>
 
-          <div className="grid grid-cols-2 gap-4 pt-4">
-            <div>
-              <div className="text-xs uppercase tracking-widest text-black/40">Thumbnail</div>
-              <div className="mt-2 aspect-4/3 overflow-hidden rounded-2xl bg-black/3">
-                {product.thumbnail_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={product.thumbnail_url} className="h-full w-full object-cover" alt="" />
-                ) : null}
-              </div>
+              <Field label="Actif" hint="visible dans la boutique">
+                <button
+                  type="button"
+                  onClick={() => setIsActive((v) => !v)}
+                  className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold ${
+                    isActive
+                      ? "bg-black text-white"
+                      : "border border-black/10 bg-black/3 text-black/70"
+                  }`}
+                >
+                  {isActive ? "Actif" : "Inactif"}
+                </button>
+              </Field>
             </div>
 
-            <div>
-              <div className="text-xs uppercase tracking-widest text-black/40">Flipagram</div>
-              <div className="mt-2 aspect-4/3 overflow-hidden rounded-2xl bg-black/3">
-                {product.flipagram_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={product.flipagram_url} className="h-full w-full object-cover" alt="" />
-                ) : null}
-              </div>
+            <div className="grid gap-6 sm:grid-cols-3">
+              <Field label="Sport" hint="ex: Basket">
+                <Input value={sport} onChange={(e) => setSport(e.target.value)} />
+              </Field>
+              <Field label="Équipe" hint="ex: PSG">
+                <Input value={team} onChange={(e) => setTeam(e.target.value)} />
+              </Field>
+              <Field label="Personne" hint="ex: Wembanyama">
+                <Input value={person} onChange={(e) => setPerson(e.target.value)} />
+              </Field>
+            </div>
+
+            <Field label="Date (shoot)">
+              <Input
+                type="date"
+                value={takenAt || ""}
+                onChange={(e) => setTakenAt(e.target.value)}
+              />
+            </Field>
+
+            <Field label="Description" hint="affichée sur la page produit">
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                className="rounded-2xl bg-black px-6 py-3 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {saving ? "Sauvegarde…" : "Enregistrer"}
+              </button>
             </div>
           </div>
         </div>

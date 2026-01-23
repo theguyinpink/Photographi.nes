@@ -8,7 +8,7 @@ export default async function AdminEditProductPage({
   params: { id: string };
 }) {
   await requireAdmin();
-  const supabase = await supabaseServer(); // ✅ await ici
+  const supabase = await supabaseServer();
 
   const { data: product, error } = await supabase
     .from("products")
@@ -17,11 +17,7 @@ export default async function AdminEditProductPage({
     .single();
 
   if (error || !product) {
-    return (
-      <div className="py-16 text-sm text-black/60">
-        Produit introuvable.
-      </div>
-    );
+    return <div className="py-16 text-sm text-black/60">Produit introuvable.</div>;
   }
 
   return (
