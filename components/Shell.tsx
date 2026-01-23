@@ -29,12 +29,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 style={{ textDecoration: "none" }}
               >
                 {/* LOGO INÈS */}
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-black">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-black">
                   <Image
                     src="/logo-ines.png"
                     alt="Inès Kerkour Photographie"
-                    width={40}
-                    height={40}
+                    width={50}
+                    height={50}
                     className="object-contain"
                     priority
                   />
