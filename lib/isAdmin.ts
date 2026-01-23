@@ -1,16 +1,14 @@
-import { supabaseServer } from "./supabase-server";
+import { supabaseServer } from "@/lib/supabase-server";
 
-export async function isAdmin(email: string | null) {
-  if (!email) return false;
+export async function isAdmin(email: string) {
+  const supabase = await supabaseServer(); // ✅ appeler + await
 
-  const allowed = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()) ?? [];
-  if (allowed.includes(email)) return true;
-
-  const { data } = await supabaseServer
+  const { data, error } = await supabase
     .from("admin_allowlist")
     .select("email")
     .eq("email", email)
-    .single();
+    .maybeSingle();
 
+  if (error) return false;
   return !!data;
 }
