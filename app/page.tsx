@@ -29,8 +29,8 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-7 max-w-2xl text-[16px] leading-7 text-black/60 sm:text-[18px]">
-              Les images sont au centre. Aperçu protégé (flipagram). Paiement carte.
-              Envoi HD par email après achat.
+              Paiement carte.
+              Envoi par email après achat.
             </p>
 
             <div className="mt-12 flex flex-wrap items-center gap-4">
@@ -49,7 +49,7 @@ export default function HomePage() {
               </Link>
 
               <span className="text-xs text-black/45">
-                Livraison : envoi email · Format HD
+                Livraison : envoi email HD sous 24-48h.
               </span>
             </div>
           </div>

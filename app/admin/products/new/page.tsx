@@ -1,47 +1,84 @@
 "use client";
 
 import { useState } from "react";
+import { supabasePublic } from "@/lib/supabase-public";
+import UploadImages from "../UploadImages";
 
 export default function NewProductPage() {
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
+  const [productId, setProductId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function save() {
-    const res = await fetch("/api/admin/products", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+  async function createProduct() {
+    if (!title || !price) {
+      alert("Titre et prix requis");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabasePublic
+      .from("products")
+      .insert({
         title,
         price_cents: Math.round(Number(price) * 100),
-      }),
-    });
+        currency: "EUR",
+        is_active: true,
+      })
+      .select("id")
+      .single();
 
-    if (res.ok) location.href = "/admin/products";
-    else alert("Erreur");
+    setLoading(false);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setProductId(data.id);
   }
 
   return (
-    <div className="max-w-xl space-y-4 rounded-2xl border bg-white p-6">
-      <h1 className="text-xl font-semibold">Nouveau produit</h1>
+    <div className="max-w-xl space-y-8">
+      <h1 className="text-2xl font-semibold">Nouveau produit</h1>
 
-      <input
-        className="w-full rounded-xl border px-3 py-2"
-        placeholder="Titre"
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-      />
+      {!productId && (
+        <div className="space-y-4">
+          <input
+            className="w-full rounded-xl border px-4 py-2"
+            placeholder="Titre"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
 
-      <input
-        className="w-full rounded-xl border px-3 py-2"
-        placeholder="Prix (€)"
-        type="number"
-        value={price}
-        onChange={e => setPrice(e.target.value)}
-      />
+          <input
+            className="w-full rounded-xl border px-4 py-2"
+            placeholder="Prix (€)"
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+          />
 
-      <button onClick={save} className="rounded-xl bg-neutral-900 px-4 py-2 text-white">
-        Enregistrer
-      </button>
+          <button
+            onClick={createProduct}
+            disabled={loading}
+            className="rounded-xl bg-black px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            {loading ? "Création..." : "Créer le produit"}
+          </button>
+        </div>
+      )}
+
+      {productId && (
+        <>
+          <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+            Produit créé. Ajoute maintenant les images 👇
+          </div>
+
+          <UploadImages productId={productId} />
+        </>
+      )}
     </div>
   );
 }
