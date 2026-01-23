@@ -10,13 +10,13 @@ export async function requireAdmin() {
 
   if (!user) redirect("/login");
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("admins")
     .select("user_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (error || !data) redirect("/");
+  if (!data) redirect("/");
 
   return user;
 }

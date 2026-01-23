@@ -26,39 +26,29 @@ export default function LoginForm() {
       return;
     }
 
+    // ✅ maintenant ça marche AVEC middleware
     router.push("/admin");
     router.refresh();
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div>
-        <label className="mb-1 block text-sm text-black/60">Email</label>
-        <input
-          className="w-full rounded-xl border border-black/10 px-4 py-3 outline-none focus:border-black/30"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="ines@email.com"
-          autoComplete="email"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm text-black/60">Mot de passe</label>
-        <input
-          type="password"
-          className="w-full rounded-xl border border-black/10 px-4 py-3 outline-none focus:border-black/30"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          autoComplete="current-password"
-        />
-      </div>
-
+      <input
+        className="w-full rounded-xl border px-4 py-3"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <input
+        type="password"
+        className="w-full rounded-xl border px-4 py-3"
+        placeholder="Mot de passe"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
       <button
-        type="submit"
         disabled={loading}
-        className="w-full rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className="w-full rounded-xl bg-black py-3 text-white"
       >
         {loading ? "Connexion..." : "Se connecter"}
       </button>
