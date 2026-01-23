@@ -24,7 +24,16 @@ const { data: product, error } = await (await supabase)
   .eq("id", params.id)
   .single();
 
-if (error || !product) return notFound();
+if (error || !product) {
+  return (
+    <div style={{ padding: 40 }}>
+      <h1>Produit introuvable (debug)</h1>
+      <p><b>params.id</b> : {params.id}</p>
+      <pre>{JSON.stringify({ error, product }, null, 2)}</pre>
+    </div>
+  );
+}
+
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
