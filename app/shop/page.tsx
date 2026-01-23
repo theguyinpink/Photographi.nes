@@ -7,6 +7,7 @@ export const revalidate = 0;
 
 
 type Product = {
+  thumbnail_url: string;
   id: string;
   title: string;
   price_cents: number;
@@ -78,7 +79,7 @@ export default async function ShopPage() {
                     <div className="relative w-full">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={p.thumbnail_url ?? ""}
+                        src={p.image_url ?? ""}
                         alt={p.title}
                         className="w-full h-auto object-contain"
                         loading="lazy"
