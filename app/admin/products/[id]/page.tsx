@@ -1,5 +1,5 @@
-import { requireAdmin } from "@/app/lib/requireAdmin";
-import { supabaseServer } from "@/app/lib/supabase-server";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { supabaseServer } from "@/lib/supabase-server";
 import EditProductForm from "./EditProductForm";
 
 export default async function AdminEditProductPage({
