@@ -1,6 +1,14 @@
 import { requireAdmin } from "@/lib/requireAdmin";
-import { supabaseServer } from "@/lib/supabase-server";
 import EditProductForm from "./EditProductForm";
+import { createClient } from "@supabase/supabase-js";
+
+function serviceSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 export default async function AdminEditProductPage({
   params,
@@ -8,7 +16,8 @@ export default async function AdminEditProductPage({
   params: { id: string };
 }) {
   await requireAdmin();
-  const supabase = await supabaseServer();
+
+  const supabase = serviceSupabase();
 
   const { data: product, error } = await supabase
     .from("products")
@@ -17,7 +26,14 @@ export default async function AdminEditProductPage({
     .single();
 
   if (error || !product) {
-    return <div className="py-16 text-sm text-black/60">Produit introuvable.</div>;
+    return (
+      <div className="py-16 text-sm text-black/60">
+        Produit introuvable (ou non accessible).
+        <div className="mt-2 text-xs text-black/40">
+          {error?.message ?? ""}
+        </div>
+      </div>
+    );
   }
 
   return (

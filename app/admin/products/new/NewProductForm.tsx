@@ -54,7 +54,7 @@ export default function NewProductForm() {
 
   const [title, setTitle] = useState("");
   const [priceEUR, setPriceEUR] = useState("0.00");
-  const [isActive, setIsActive] = useState(false);
+const [isActive, setIsActive] = useState(true);
 
   const [sport, setSport] = useState("");
   const [team, setTeam] = useState("");
