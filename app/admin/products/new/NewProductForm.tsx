@@ -54,7 +54,7 @@ export default function NewProductForm() {
 
   const [title, setTitle] = useState("");
   const [priceEUR, setPriceEUR] = useState("0.00");
-const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(true);
 
   const [sport, setSport] = useState("");
   const [team, setTeam] = useState("");
@@ -118,8 +118,14 @@ const [isActive, setIsActive] = useState(true);
       }
 
       const data = await r.json();
+      if (!data?.id || typeof data.id !== "string") {
+        console.error("API response:", data);
+        throw new Error(
+          "Création OK mais l'ID est manquant. Vérifie POST /api/admin/products.",
+        );
+      }
       router.push(`/admin/products/${data.id}`);
-      if (!data?.id) throw new Error("Création OK mais id manquant");
+
       router.refresh();
     } catch (e: any) {
       alert(e?.message ?? "Erreur création");
@@ -133,7 +139,9 @@ const [isActive, setIsActive] = useState(true);
       {/* Aperçu */}
       <div className="lg:col-span-5">
         <div className="rounded-[28px] border border-black/10 bg-white p-6">
-          <div className="text-xs uppercase tracking-[0.2em] text-black/40">Images</div>
+          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
+            Images
+          </div>
 
           <div className="mt-5 space-y-5">
             <div>
@@ -151,7 +159,9 @@ const [isActive, setIsActive] = useState(true);
             </div>
 
             <div>
-              <div className="text-sm font-semibold">Flipagram (aperçu protégé)</div>
+              <div className="text-sm font-semibold">
+                Flipagram (aperçu protégé)
+              </div>
               <p className="mt-1 text-xs text-black/40">
                 L’image watermarkée affichée sur le site.
               </p>
@@ -174,7 +184,9 @@ const [isActive, setIsActive] = useState(true);
       {/* Form */}
       <div className="lg:col-span-7">
         <div className="rounded-[28px] border border-black/10 bg-white p-6">
-          <div className="text-xs uppercase tracking-[0.2em] text-black/40">Infos</div>
+          <div className="text-xs uppercase tracking-[0.2em] text-black/40">
+            Infos
+          </div>
 
           <div className="mt-6 grid gap-6">
             <Field label="Titre">
@@ -183,7 +195,10 @@ const [isActive, setIsActive] = useState(true);
 
             <div className="grid gap-6 sm:grid-cols-2">
               <Field label="Prix (€)">
-                <Input value={priceEUR} onChange={(e) => setPriceEUR(e.target.value)} />
+                <Input
+                  value={priceEUR}
+                  onChange={(e) => setPriceEUR(e.target.value)}
+                />
               </Field>
 
               <Field label="Statut" hint="visible dans la boutique">
@@ -203,22 +218,35 @@ const [isActive, setIsActive] = useState(true);
 
             <div className="grid gap-6 sm:grid-cols-3">
               <Field label="Sport" hint="ex: Basket">
-                <Input value={sport} onChange={(e) => setSport(e.target.value)} />
+                <Input
+                  value={sport}
+                  onChange={(e) => setSport(e.target.value)}
+                />
               </Field>
               <Field label="Équipe" hint="ex: PSG">
                 <Input value={team} onChange={(e) => setTeam(e.target.value)} />
               </Field>
               <Field label="Personne" hint="ex: Wembanyama">
-                <Input value={person} onChange={(e) => setPerson(e.target.value)} />
+                <Input
+                  value={person}
+                  onChange={(e) => setPerson(e.target.value)}
+                />
               </Field>
             </div>
 
             <Field label="Photo prise le">
-              <Input type="date" value={takenAt} onChange={(e) => setTakenAt(e.target.value)} />
+              <Input
+                type="date"
+                value={takenAt}
+                onChange={(e) => setTakenAt(e.target.value)}
+              />
             </Field>
 
             <Field label="Description" hint="affichée sur la page produit">
-              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </Field>
 
             <div className="flex justify-end">
