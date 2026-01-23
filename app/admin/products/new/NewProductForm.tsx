@@ -125,8 +125,7 @@ export default function NewProductForm() {
         );
       }
       router.push(`/admin/products/${data.id}`);
-
-      router.refresh();
+      router.refresh(); // ✅ force re-fetch des Server Components
     } catch (e: any) {
       alert(e?.message ?? "Erreur création");
     } finally {

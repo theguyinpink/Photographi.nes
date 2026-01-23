@@ -2,6 +2,9 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { supabasePublic } from "@/lib/supabase-public";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 
 type Product = {
   id: string;
