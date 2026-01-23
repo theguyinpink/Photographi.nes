@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       await supabaseAdmin
         .from("orders")
         .update({
-          status: "paid",
+          status: "PAID",
           email: session.customer_details?.email ?? null,
         })
         .eq("id", orderId);

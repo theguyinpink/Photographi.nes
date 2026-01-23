@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
-        status: "pending",
+        status: "PENDING",
         total_cents: totalCents,
         currency,
         items,
