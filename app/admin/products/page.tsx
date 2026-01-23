@@ -20,7 +20,8 @@ export default async function AdminProductsPage() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id,title,price_cents,is_active,thumbnail_url,created_at,sport,team,person,taken_at")
+    // ✅ Une seule image par produit (watermarkée) => products.image_url
+    .select("id,title,price_cents,is_active,image_url,created_at,sport,team,person,taken_at")
     .order("created_at", { ascending: false });
 
   return (
@@ -58,10 +59,10 @@ export default async function AdminProductsPage() {
                   className="group flex items-center gap-5 py-4"
                 >
                   <div className="h-14 w-14 overflow-hidden rounded-2xl border border-black/10 bg-black/2">
-                    {p.thumbnail_url ? (
+                    {p.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={p.thumbnail_url}
+                        src={p.image_url}
                         alt=""
                         className="h-full w-full object-cover"
                       />
