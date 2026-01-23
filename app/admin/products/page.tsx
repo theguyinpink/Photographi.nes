@@ -1,113 +1,114 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/requireAdmin";
-import { supabaseServer } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
+import { AdminCard } from "@/components/ui/AdminCard";
+import { AdminButton } from "@/components/ui/AdminButton";
 
-function money(cents: number) {
-  return (cents / 100).toFixed(2).replace(".", ",") + " €";
-}
+export const dynamic = "force-dynamic";
 
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-black/10 bg-black/3 px-3 py-1 text-xs text-black/70">
-      {children}
-    </span>
+function serviceSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
   );
 }
 
 export default async function AdminProductsPage() {
   await requireAdmin();
-  const supabase = await supabaseServer();
+  const supabase = serviceSupabase();
 
-  const { data: products, error } = await supabase
+  const { data: products } = await supabase
     .from("products")
-    .select(
-      "id,title,price_cents,is_active,created_at,thumbnail_url,sport,team,person,taken_at"
-    )
+    .select("id,title,price_cents,is_active,thumbnail_url,created_at,sport,team,person,taken_at")
     .order("created_at", { ascending: false });
-
-  if (error) {
-    return <div className="py-16 text-sm text-black/60">Erreur: {error.message}</div>;
-  }
 
   return (
     <div className="py-12">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex items-start justify-between gap-6">
         <div>
-          <div className="text-xs uppercase tracking-[0.22em] text-black/40">Admin</div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">Produits</h1>
+          <div className="text-xs uppercase tracking-[0.22em] text-black/40">
+            Admin · Catalogue
+          </div>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+            Produits
+          </h1>
           <p className="mt-3 text-sm text-black/60">
-            Gère les photos, prix, catégories et aperçus (flipagram).
+            Gère tes photos, leurs infos, et leur visibilité en boutique.
           </p>
         </div>
 
-        <Link
-          href="/admin/products/new"
-          className="inline-flex items-center justify-center rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white"
-        >
-          Nouveau produit
+        <Link href="/admin/products/new">
+          <AdminButton>+ Nouveau produit</AdminButton>
         </Link>
       </div>
 
-      <div className="mt-10 overflow-hidden rounded-[28px] border border-black/10 bg-white">
-        <div className="grid grid-cols-12 gap-3 border-b border-black/10 px-6 py-4 text-xs uppercase tracking-[0.2em] text-black/40">
-          <div className="col-span-6">Produit</div>
-          <div className="col-span-2 hidden md:block">Catégories</div>
-          <div className="col-span-2 hidden md:block">Date</div>
-          <div className="col-span-2 text-right">Prix / Statut</div>
-        </div>
-
-        <div className="divide-y divide-black/10">
-          {(products ?? []).map((p) => (
-            <Link
-              key={p.id}
-              href={`/admin/products/${p.id}`}
-              className="grid grid-cols-12 gap-3 px-6 py-5 hover:bg-black/3"
-            >
-              <div className="col-span-8 md:col-span-6 flex items-center gap-4 min-w-0">
-                <div className="h-12 w-12 overflow-hidden rounded-2xl border border-black/10 bg-black/2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={p.thumbnail_url ?? ""}
-                    alt={p.title}
-                    className="h-full w-full object-contain"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{p.title}</div>
-                  <div className="mt-1 text-xs text-black/50">
-                    ID: <span className="font-mono">{String(p.id).slice(0, 8)}…</span>
+      <div className="mt-10">
+        <AdminCard
+          title="Liste"
+          subtitle="Clique sur un produit pour l’éditer."
+        >
+          <div className="divide-y divide-black/5">
+            {(products ?? []).map((p) => {
+              const price = ((p.price_cents ?? 0) / 100).toFixed(2);
+              return (
+                <Link
+                  key={p.id}
+                  href={`/admin/products/${p.id}`}
+                  className="group flex items-center gap-5 py-4"
+                >
+                  <div className="h-14 w-14 overflow-hidden rounded-2xl border border-black/10 bg-black/2">
+                    {p.thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.thumbnail_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
                   </div>
-                </div>
-              </div>
 
-              <div className="col-span-4 md:col-span-2 hidden md:flex flex-wrap gap-2">
-                {p.sport ? <Chip>Sport: {p.sport}</Chip> : null}
-                {p.team ? <Chip>Équipe: {p.team}</Chip> : null}
-                {p.person ? <Chip>Personne: {p.person}</Chip> : null}
-              </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="truncate text-sm font-semibold">
+                        {p.title ?? "Sans titre"}
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                          p.is_active
+                            ? "bg-black text-white"
+                            : "bg-black/6 text-black/60"
+                        }`}
+                      >
+                        {p.is_active ? "Actif" : "Brouillon"}
+                      </span>
+                    </div>
 
-              <div className="col-span-2 hidden md:block text-sm text-black/70">
-                {p.taken_at ? new Date(p.taken_at).toLocaleDateString("fr-FR") : "—"}
-              </div>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-black/45">
+                      {p.sport ? <span>Sport: {p.sport}</span> : null}
+                      {p.team ? <span>Équipe: {p.team}</span> : null}
+                      {p.person ? <span>Personne: {p.person}</span> : null}
+                      {p.taken_at ? <span>Prise le: {p.taken_at}</span> : null}
+                    </div>
+                  </div>
 
-              <div className="col-span-4 md:col-span-2 text-right">
-                <div className="text-sm font-semibold">{money(p.price_cents)}</div>
-                <div className="mt-1 text-xs">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 ${
-                      p.is_active
-                        ? "bg-black text-white"
-                        : "border border-black/10 bg-black/3 text-black/60"
-                    }`}
-                  >
-                    {p.is_active ? "Actif" : "Inactif"}
-                  </span>
-                </div>
+                  <div className="text-sm font-semibold tabular-nums text-black/70">
+                    {price} €
+                  </div>
+
+                  <div className="text-black/30 transition group-hover:text-black/60">
+                    →
+                  </div>
+                </Link>
+              );
+            })}
+            {(products ?? []).length === 0 ? (
+              <div className="py-10 text-sm text-black/50">
+                Aucun produit pour l’instant. Crée ton premier.
               </div>
-            </Link>
-          ))}
-        </div>
+            ) : null}
+          </div>
+        </AdminCard>
       </div>
     </div>
   );
