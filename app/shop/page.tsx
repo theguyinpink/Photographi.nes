@@ -2,16 +2,15 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { supabasePublic } from "@/lib/supabase-public";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-
 type Product = {
-  thumbnail_url: string;
   id: string;
   title: string;
   price_cents: number;
-  currency: string;
+  currency: string | null;
   image_url: string | null;
   created_at?: string;
 };
@@ -19,7 +18,7 @@ type Product = {
 export default async function ShopPage() {
   const { data, error } = await supabasePublic
     .from("products")
-    .select("id,title,price_cents,currency,thumbnail_url,created_at")
+    .select("id,title,price_cents,currency,image_url,created_at") // ✅ IMPORTANT
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
@@ -45,7 +44,7 @@ export default async function ShopPage() {
 
           <Link
             href="/cart"
-            className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/80 hover:bg-black/3 transition"
+            className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/80 transition hover:bg-black/3"
           >
             Ouvrir le panier
           </Link>
@@ -72,41 +71,45 @@ export default async function ShopPage() {
           </div>
         ) : (
           <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((p) => (
-              <Link key={p.id} href={`/product/${p.id}`} className="group">
-                <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
-                  <div className="p-3">
-                    <div className="relative w-full">
+            {products.map((p) => {
+              const src = p.image_url && p.image_url.trim().length > 0
+                ? p.image_url
+                : "/placeholder.png"; // ✅ fallback propre
+
+              return (
+                <Link key={p.id} href={`/product/${p.id}`} className="group">
+                  <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
+                    <div className="p-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={p.image_url ?? ""}
+                        src={src}
                         alt={p.title}
                         className="w-full h-auto object-contain"
                         loading="lazy"
                       />
                     </div>
-                  </div>
 
-                  {/* Infos très discrètes (Leen Heyne vibe) */}
-                  <div className="px-5 py-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold tracking-tight">
-                          {p.title}
+                    <div className="px-5 py-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold tracking-tight">
+                            {p.title}
+                          </div>
+                          <div className="mt-2 text-sm text-black/55">
+                            {(p.price_cents / 100).toFixed(2)}{" "}
+                            {p.currency ?? "EUR"}
+                          </div>
                         </div>
-                        <div className="mt-2 text-sm text-black/55">
-                          {(p.price_cents / 100).toFixed(2)} {p.currency}
-                        </div>
+
+                        <span className="text-xs text-black/40 transition group-hover:text-black/70">
+                          Ouvrir
+                        </span>
                       </div>
-
-                      <span className="text-xs text-black/40 group-hover:text-black/70 transition">
-                        Ouvrir
-                      </span>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
