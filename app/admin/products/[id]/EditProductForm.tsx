@@ -12,9 +12,12 @@ type Product = {
   currency: string | null;
   image_url: string | null;
   description: string | null;
+
   sport: string | null;
   team: string | null;
+  category: string | null;
   person: string | null;
+
   taken_at: string | null;
   is_active: boolean;
 };
@@ -23,9 +26,12 @@ type FormState = {
   title: string;
   price: string; // euros (string for input)
   description: string;
+
   sport: string;
   team: string;
+  category: string;
   person: string;
+
   taken_at: string; // yyyy-mm-dd
   is_active: boolean;
 };
@@ -38,16 +44,22 @@ export default function EditProductForm({ product }: { product?: Product | null 
 
   const isEdit = !!product?.id;
 
-  const initial = useMemo<FormState>(() => ({
-    title: product?.title ?? "",
-    price: product ? String((product.price_cents ?? 0) / 100) : "8",
-    description: product?.description ?? "",
-    sport: product?.sport ?? "",
-    team: product?.team ?? "",
-    person: product?.person ?? "",
-    taken_at: product?.taken_at ? String(product.taken_at).slice(0, 10) : "",
-    is_active: product?.is_active ?? true,
-  }), [product]);
+  const initial = useMemo<FormState>(
+    () => ({
+      title: product?.title ?? "",
+      price: product ? String((product.price_cents ?? 0) / 100) : "8",
+      description: product?.description ?? "",
+
+      sport: product?.sport ?? "",
+      team: product?.team ?? "",
+      category: product?.category ?? "",
+      person: product?.person ?? "",
+
+      taken_at: product?.taken_at ? String(product.taken_at).slice(0, 10) : "",
+      is_active: product?.is_active ?? true,
+    }),
+    [product]
+  );
 
   const [form, setForm] = useState<FormState>(initial);
   const [file, setFile] = useState<File | null>(null);
@@ -66,9 +78,11 @@ export default function EditProductForm({ product }: { product?: Product | null 
       form.description !== initial.description ||
       form.sport !== initial.sport ||
       form.team !== initial.team ||
+      form.category !== initial.category ||
       form.person !== initial.person ||
       form.taken_at !== initial.taken_at ||
       form.is_active !== initial.is_active;
+
     return changed || !!file;
   }, [form, initial, file]);
 
@@ -84,7 +98,9 @@ export default function EditProductForm({ product }: { product?: Product | null 
 
   const canSubmit = useMemo(() => {
     const hasTitle = form.title.trim().length > 0;
-    const hasPrice = String(form.price).trim().length > 0 && Number(form.price) > 0;
+    const hasPrice =
+      String(form.price).trim().length > 0 && Number(form.price) > 0;
+
     const needsFile = !isEdit; // en création : image obligatoire
     return hasTitle && hasPrice && !busy && (!needsFile || !!file);
   }, [form.title, form.price, busy, file, isEdit]);
@@ -101,9 +117,12 @@ export default function EditProductForm({ product }: { product?: Product | null 
         title: form.title.trim(),
         price: Number(form.price),
         description: form.description.trim() || null,
+
         sport: form.sport.trim() || null,
         team: form.team.trim() || null,
+        category: form.category.trim() || null,
         person: form.person.trim() || null,
+
         taken_at: form.taken_at ? new Date(form.taken_at).toISOString() : null,
         is_active: form.is_active,
         currency: "EUR",
@@ -124,9 +143,12 @@ export default function EditProductForm({ product }: { product?: Product | null 
         title: form.title.trim(),
         price: Number(form.price),
         description: form.description.trim() || null,
+
         sport: form.sport.trim() || null,
         team: form.team.trim() || null,
+        category: form.category.trim() || null,
         person: form.person.trim() || null,
+
         taken_at: form.taken_at ? new Date(form.taken_at).toISOString() : null,
         is_active: form.is_active,
         currency: "EUR",
@@ -192,7 +214,11 @@ export default function EditProductForm({ product }: { product?: Product | null 
   }
 
   const statusLabel =
-    step === "saving" ? "Sauvegarde…" : step === "uploading" ? "Upload image…" : "";
+    step === "saving"
+      ? "Sauvegarde…"
+      : step === "uploading"
+      ? "Upload image…"
+      : "";
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -202,7 +228,9 @@ export default function EditProductForm({ product }: { product?: Product | null 
             {isEdit ? "Modifier le produit" : "Nouveau produit"}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {isEdit ? "Modifie la fiche et/ou remplace l’image." : "Crée le produit puis upload l’image."}
+            {isEdit
+              ? "Modifie la fiche et/ou remplace l’image."
+              : "Crée le produit puis upload l’image."}
           </p>
         </div>
 
@@ -263,6 +291,7 @@ export default function EditProductForm({ product }: { product?: Product | null 
                 value={form.sport}
                 onChange={(e) => set("sport", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Ex: Basket"
               />
             </div>
 
@@ -272,15 +301,27 @@ export default function EditProductForm({ product }: { product?: Product | null 
                 value={form.team}
                 onChange={(e) => set("team", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Ex: Paris Basketball"
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
+              <label className="text-sm font-medium text-zinc-900">Catégorie (optionnel)</label>
+              <input
+                value={form.category}
+                onChange={(e) => set("category", e.target.value)}
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Ex: Dunk / Défense / Portrait…"
+              />
+            </div>
+
+            <div>
               <label className="text-sm font-medium text-zinc-900">Personne (optionnel)</label>
               <input
                 value={form.person}
                 onChange={(e) => set("person", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Ex: Wembanyama"
               />
             </div>
 
@@ -299,7 +340,11 @@ export default function EditProductForm({ product }: { product?: Product | null 
           <AdminImageDropzone
             label="Image du produit"
             required={!isEdit}
-            help={isEdit ? "Glisse pour remplacer — sinon on garde l’image actuelle" : "Obligatoire en création"}
+            help={
+              isEdit
+                ? "Glisse pour remplacer — sinon on garde l’image actuelle"
+                : "Obligatoire en création"
+            }
             initialUrl={product?.image_url}
             value={file}
             onChange={(f) => setFile(f)}
