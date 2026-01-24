@@ -44,6 +44,10 @@ export default async function SuccessPage({
 
   const order = data as Order | null;
 
+
+
+  localStorage.removeItem("checkout_id");
+
   return (
     <Shell>
       <main className="pt-12 pb-24">
