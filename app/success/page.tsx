@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Shell } from "@/components/Shell";
-import { supabaseServer } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,20 +17,24 @@ type Order = {
   email: string | null;
 };
 
+function supabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!; // 🔒 server only
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
 export default async function SuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ order_id?: string } | { order_id?: string }>;
+  searchParams: Promise<{ order_id?: string }>;
 }) {
-  const sp = await Promise.resolve(searchParams);
-  const orderId = sp?.order_id;
+  const { order_id } = await searchParams;
+  const orderId = order_id;
 
-  if (!orderId) {
-    // si quelqu’un tape /success à la main
-    redirect("/shop");
-  }
+  if (!orderId) redirect("/shop");
 
-  const supabase = await supabaseServer();
+  // ✅ admin client : bypass RLS
+  const supabase = supabaseAdmin();
 
   const { data, error } = await supabase
     .from("orders")
@@ -53,11 +57,9 @@ export default async function SuccessPage({
           </h1>
 
           <p className="mt-3 max-w-xl text-sm leading-6 text-black/60">
-            Merci ! Ton paiement a bien été pris en compte. Tu peux maintenant
-            revenir à la boutique ou consulter ton panier.
+            Merci ! Ton paiement a bien été pris en compte.
           </p>
 
-          {/* Card */}
           <div className="mt-10 overflow-hidden rounded-[28px] border border-black/10 bg-white">
             <div className="p-6 sm:p-8">
               {error || !order ? (
@@ -65,12 +67,21 @@ export default async function SuccessPage({
                   <div className="font-medium text-black/80">
                     Commande introuvable
                   </div>
+
                   <div className="mt-2">
                     order_id :{" "}
                     <span className="font-mono text-xs text-black/50">
                       {orderId}
                     </span>
                   </div>
+
+                  {/* ✅ debug soft (tu peux enlever après) */}
+                  {error ? (
+                    <pre className="mt-4 overflow-auto rounded-2xl border border-black/10 bg-black/2 p-4 text-xs text-black/60">
+                      {JSON.stringify(error, null, 2)}
+                    </pre>
+                  ) : null}
+
                   <div className="mt-4">
                     <Link
                       href="/shop"
@@ -147,8 +158,7 @@ export default async function SuccessPage({
                   </div>
 
                   <div className="text-xs text-black/40">
-                    (Prochaine étape : livraison automatique des photos HD après
-                    vérification du webhook.)
+                    Prochaine étape : livraison des photos HD après confirmation webhook.
                   </div>
                 </div>
               )}

@@ -235,7 +235,7 @@ export default function CartPage() {
             </button>
 
             <div className="mt-4 text-xs text-neutral-500">
-              Règles : 1=8€ • 3=20€ • 4=28€ • 5=30€ • sinon 8€/photo
+              Règles : 1=8€ • 3=20€ • 4=28€ • 5=30€ • 6=38 • 7=50€ • 8=56 • 9=58€ 10=60€/photo
             </div>
           </div>
         </div>
