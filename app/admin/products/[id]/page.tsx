@@ -47,9 +47,7 @@ export default async function AdminEditProductPage({
 
   const { data, error } = await supabase
     .from("products")
-    .select(
-      "id,title,price_cents,currency,image_url,description,sport,team,person,taken_at,is_active,created_at"
-    )
+    .select("id,title,price_cents,currency,image_url,description,sport,team,category,person,taken_at,is_active")
     .eq("id", id)
     .single();
 
