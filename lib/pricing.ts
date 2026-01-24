@@ -17,7 +17,7 @@ export function calculateTotalPrice(photoCount: number): number {
     case 6:
       return 38;
     case 7:
-      return 50;
+      return 48;
     case 8:
       return 56;
     case 9:
