@@ -82,7 +82,7 @@ export default async function ProductPage({
               </div>
 
               <p className="mt-3 text-xs text-black/45">
-                Preview watermarkée (bucket previews)
+                Preview watermarkée
               </p>
             </div>
           </div>

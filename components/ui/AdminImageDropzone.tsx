@@ -156,7 +156,7 @@ export function AdminImageDropzone({
                   Glisse ton image ici, ou clique pour choisir
                 </div>
                 <div className="text-xs text-zinc-500">
-                  1 seule image par produit (watermark déjà appliqué)
+                  1 seule image par produit
                 </div>
               </div>
             )}

@@ -88,7 +88,7 @@ export default async function ShopPage({
               Boutique
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-black/60">
-              Clique sur une photo pour ouvrir la fiche (preview protégé) et
+              Clique sur une photo pour ouvrir la fiche et
               l’ajouter au panier.
             </p>
           </div>

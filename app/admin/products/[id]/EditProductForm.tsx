@@ -328,7 +328,7 @@ async function uploadImage(id: string) {
                 value={form.team}
                 onChange={(e) => set("team", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
-                placeholder="Ex: Paris Basketball"
+                placeholder="Ex: Seine-Essonne BasketBall"
               />
             </div>
 
@@ -338,7 +338,7 @@ async function uploadImage(id: string) {
                 value={form.category}
                 onChange={(e) => set("category", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
-                placeholder="Ex: Dunk / Défense / Portrait…"
+                placeholder="Ex: U13/Argent/Seniors…"
               />
             </div>
 
@@ -348,7 +348,7 @@ async function uploadImage(id: string) {
                 value={form.person}
                 onChange={(e) => set("person", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
-                placeholder="Ex: Wembanyama"
+                placeholder="Ex: Charlène Carré/Numéro 8"
               />
             </div>
 

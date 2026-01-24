@@ -30,7 +30,7 @@ export default async function AdminHome() {
         >
           <div className="text-sm font-semibold">Commandes</div>
           <div className="mt-2 text-sm text-black/60">
-            (à venir) Voir les achats et envoyer les originaux.
+            Voir les achats et envoyer les originaux.
           </div>
         </Link>
       </div>

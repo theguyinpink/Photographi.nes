@@ -201,7 +201,7 @@ export default function NewProductForm() {
                 value={form.title}
                 onChange={(e) => onChange("title", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
-                placeholder="Ex: Dunk — Paris Basketball"
+                placeholder="Ex: Tournoi U13 - Seine-Essonne vs ES Yerres"
               />
             </div>
 
@@ -253,7 +253,7 @@ export default function NewProductForm() {
                 value={form.team}
                 onChange={(e) => onChange("team", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
-                placeholder="PSG, Paris Basketball…"
+                placeholder="Ex: Seine-Essonne BasketBall"
               />
             </div>
 
@@ -263,7 +263,7 @@ export default function NewProductForm() {
                 value={form.category}
                 onChange={(e) => onChange("category", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
-                placeholder="Dunk / Défense / Portrait…"
+                placeholder="Ex: U13/Argent/Seniors…"
               />
             </div>
 
@@ -273,7 +273,7 @@ export default function NewProductForm() {
                 value={form.person}
                 onChange={(e) => onChange("person", e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
-                placeholder="Wembanyama…"
+                placeholder="Ex: Charlène Carré/Numéro 8"
               />
             </div>
 
@@ -293,7 +293,7 @@ export default function NewProductForm() {
           <AdminImageDropzone
             label="Image du produit"
             required
-            help="PNG/JPG — watermark déjà appliqué"
+            help="PNG/JPG — n'oublie pas le flipagram ! "
             value={file}
             onChange={(f) => setFile(f)}
             maxSizeMb={15}
