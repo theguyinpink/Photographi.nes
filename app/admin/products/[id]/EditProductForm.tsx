@@ -158,23 +158,43 @@ export default function EditProductForm({ product }: { product?: Product | null 
     if (!r.ok) throw new Error(await r.text());
   }
 
-  async function uploadImage(id: string) {
-    if (!file) return;
+async function uploadImage(id: string) {
+  if (!file) return;
 
-    setStep("uploading");
+  setStep("uploading");
 
-    const { uploadPreviewImageToSupabase } = await import("@/lib/uploadPreviewImage");
-    const publicUrl = await uploadPreviewImageToSupabase({ productId: id, file });
+  // 1) demande une signed upload url au serveur
+  const r = await fetch(`/api/admin/products/${id}/image`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type || "application/octet-stream",
+    }),
+  });
 
-    // ✅ Update DB (ton PATCH route.ts accepte déjà image_url avec ce qu’on a fait)
-    const r = await fetch(`/api/admin/products/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_url: publicUrl }),
-    });
+  if (!r.ok) throw new Error(await r.text());
+  const { signedUrl, publicUrl } = await r.json();
 
-    if (!r.ok) throw new Error(await r.text());
-  }
+  // 2) upload direct vers Supabase via PUT
+  const up = await fetch(signedUrl, {
+    method: "PUT",
+    headers: { "content-type": file.type || "application/octet-stream" },
+    body: file,
+  });
+
+  if (!up.ok) throw new Error(`Upload Supabase failed (${up.status})`);
+
+  // 3) patch image_url dans products
+  const patch = await fetch(`/api/admin/products/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ image_url: publicUrl }),
+  });
+
+  if (!patch.ok) throw new Error(await patch.text());
+}
+
 
 
 

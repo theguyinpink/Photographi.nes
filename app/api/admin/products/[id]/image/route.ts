@@ -1,9 +1,7 @@
-// app/api/admin/products/[id]/image/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function serviceSupabase() {
@@ -14,128 +12,50 @@ function serviceSupabase() {
   );
 }
 
-function safeFileName(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9.\-_]/g, "-");
-}
-
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> } // ✅ Next 16
+  context: { params: Promise<{ id: string }> }
 ) {
   await requireAdmin();
-
   const { id } = await context.params;
 
-  // 🔎 env guard (utile sur Vercel)
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return NextResponse.json(
-      { error: "NEXT_PUBLIC_SUPABASE_URL manquant" },
-      { status: 500 }
-    );
-  }
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY manquant (Vercel env vars)" },
-      { status: 500 }
-    );
-  }
+  const body = await req.json().catch(() => null);
+  const fileName = body?.fileName as string | undefined;
+  const contentType = body?.contentType as string | undefined;
 
-  if (!id) {
-    return NextResponse.json({ error: "Missing product id" }, { status: 400 });
-  }
-
-  const form = await req.formData();
-  const file = form.get("image");
-
-  if (!(file instanceof Blob)) {
+  if (!fileName || !contentType) {
     return NextResponse.json(
-      { error: "Missing field 'image' (FormData)" },
+      { error: "fileName/contentType manquants" },
       { status: 400 }
     );
   }
 
   const supabase = serviceSupabase();
 
-  // ✅ bucket + chemin => tu verras l'upload dans previews/flip/...
-  const bucket = "previews";
-  const originalName = (file as any).name ?? "image.jpg";
-  const contentType = (file as any).type || "image/jpeg";
+  // chemin final : previews/flip/<productId>/<timestamp>-<fileName>
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const path = `flip/${id}/${Date.now()}-${safeName}`;
 
-  const path = `flip/${id}/${Date.now()}-${safeFileName(originalName)}`;
+  // ✅ Signed URL d'upload
+  const { data, error } = await supabase.storage
+    .from("previews")
+    .createSignedUploadUrl(path);
 
-  // ✅ upload direct du Blob (simple et fiable)
-  const { data: upData, error: upErr } = await supabase.storage
-    .from(bucket)
-    .upload(path, file, {
-      upsert: true,
-      contentType,
-    });
-
-  if (upErr) {
+  if (error || !data?.signedUrl) {
     return NextResponse.json(
-      {
-        error: "Upload storage échoué",
-        details: upErr.message,
-        bucket,
-        path,
-        contentType,
-      },
-      { status: 400 }
+      { error: "Signed upload url failed", details: error },
+      { status: 500 }
     );
   }
 
-  // 🔎 preuve : on liste le dossier flip/<id> juste après upload
-  const { data: listed, error: listErr } = await supabase.storage
-    .from(bucket)
-    .list(`flip/${id}`, {
-      limit: 10,
-      sortBy: { column: "created_at", order: "desc" },
-    });
-
-  if (listErr) {
-    return NextResponse.json(
-      {
-        error: "Upload OK mais list() échoué",
-        details: listErr.message,
-        bucket,
-        path,
-        uploaded: upData,
-      },
-      { status: 400 }
-    );
-  }
-
-  // 🔗 URL publique (le bucket doit être public pour affichage visiteur)
-  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-  const image_url = pub.publicUrl;
-
-  // ✅ update DB
-  const { error: dbErr } = await supabase
-    .from("products")
-    .update({ image_url })
-    .eq("id", id);
-
-  if (dbErr) {
-    return NextResponse.json(
-      {
-        error: "Update DB échoué",
-        details: dbErr.message,
-        image_url,
-        bucket,
-        path,
-        listed,
-      },
-      { status: 400 }
-    );
-  }
+  // URL publique (bucket public)
+  const publicUrl =
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}` +
+    `/storage/v1/object/public/previews/${path}`;
 
   return NextResponse.json({
-    ok: true,
-    id,
-    image_url,
-    bucket,
+    signedUrl: data.signedUrl,
     path,
-    uploaded: upData,
-    listed,
+    publicUrl,
   });
 }
