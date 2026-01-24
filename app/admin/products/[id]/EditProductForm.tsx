@@ -158,20 +158,46 @@ export default function EditProductForm({ product }: { product?: Product | null 
     if (!r.ok) throw new Error(await r.text());
   }
 
-  async function uploadImage(id: string) {
-    if (!file) return;
+async function uploadImage(id: string) {
+  if (!file) return;
 
-    setStep("uploading");
-    const fd = new FormData();
-    fd.append("image", file); // ✅ clé = image
+  setStep("uploading");
 
-    const r = await fetch(`/api/admin/products/${id}/image`, {
-      method: "POST",
-      body: fd,
+  const { supabaseBrowser } = await import("@/lib/supabase-browser");
+  const supabase = supabaseBrowser();
+
+  const safeName = file.name
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9.\-_]/g, "");
+
+  const path = `flip/${id}/${Date.now()}-${safeName}`;
+
+  // ✅ Upload direct vers Supabase Storage
+  const { error: upErr } = await supabase.storage
+    .from("previews")
+    .upload(path, file, {
+      upsert: true,
+      contentType: file.type || "image/png",
+      cacheControl: "3600",
     });
 
-    if (!r.ok) throw new Error(await r.text());
-  }
+  if (upErr) throw new Error(upErr.message);
+
+  // ✅ Récupère l'URL publique
+  const { data } = supabase.storage.from("previews").getPublicUrl(path);
+  const publicUrl = data.publicUrl;
+
+  // ✅ Update DB image_url via ton endpoint existant PATCH
+  const r = await fetch(`/api/admin/products/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_url: publicUrl }),
+  });
+
+  if (!r.ok) throw new Error(await r.text());
+}
+
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
