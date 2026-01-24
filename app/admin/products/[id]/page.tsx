@@ -21,13 +21,16 @@ type Product = {
   currency: string | null;
   image_url: string | null;
   description: string | null;
+
   sport: string | null;
   team: string | null;
+  category: string | null; // ✅ AJOUT
   person: string | null;
+
   taken_at: string | null;
   is_active: boolean;
-  created_at?: string | null;
 };
+
 
 export default async function AdminEditProductPage({
   params,
