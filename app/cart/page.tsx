@@ -10,7 +10,6 @@ import {
   removeFromCart,
   clearCart,
 } from "@/components/cart/cartStorage";
-
 import { calculateTotalPrice } from "@/lib/pricing";
 
 /* ---------- helpers ---------- */
@@ -21,6 +20,22 @@ function getPricingLabel(photoCount: number) {
   if (photoCount === 4) return "Pack 3 + 1";
   if (photoCount === 5) return "Pack 5 photos";
   return "Tarif standard";
+}
+
+function getOrCreateCheckoutId() {
+  if (typeof window === "undefined") return "";
+  const key = "checkout_id";
+
+  const existing = window.localStorage.getItem(key);
+  if (existing) return existing;
+
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Math.random().toString(16).slice(2)}-${Date.now()}`;
+
+  window.localStorage.setItem(key, id);
+  return id;
 }
 
 /* ---------- page ---------- */
@@ -51,21 +66,25 @@ export default function CartPage() {
     [photoCount]
   );
 
-  const bundleTotalCents = bundleTotalEuros * 100;
+  const bundleTotalCents = Math.round(bundleTotalEuros * 100);
   const savingsCents = Math.max(0, baseTotalCents - bundleTotalCents);
 
   /* ---------- Stripe ---------- */
 
   const handleCheckout = async () => {
+    if (loading) return; // garde anti double-clic
     if (photoCount <= 0) return;
 
     try {
       setLoading(true);
 
+      const checkout_id = getOrCreateCheckoutId();
+
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          checkout_id,
           items: items.map((i) => ({
             id: i.id,
             qty: i.qty,
@@ -73,7 +92,14 @@ export default function CartPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("Checkout API error:", data);
+        alert(data?.error ?? "Erreur lors du paiement");
+        setLoading(false);
+        return;
+      }
 
       if (data.url) {
         window.location.href = data.url;
@@ -228,6 +254,9 @@ export default function CartPage() {
               onClick={() => {
                 clearCart();
                 setItems([]);
+                if (typeof window !== "undefined") {
+                  window.localStorage.removeItem("checkout_id");
+                }
               }}
               className="mt-3 w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-900 hover:bg-neutral-50"
             >

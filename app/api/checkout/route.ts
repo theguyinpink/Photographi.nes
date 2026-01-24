@@ -17,7 +17,6 @@ type CheckoutItem = { id: string; qty: number };
 
 export async function POST(req: Request) {
   try {
-    // ✅ check env
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
     }
@@ -33,8 +32,13 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const items: CheckoutItem[] = Array.isArray(body.items) ? body.items : [];
+    const checkoutId: string | undefined = body.checkout_id;
 
-    const photoCount = items.reduce((sum, i) => sum + (i.qty ?? 0), 0);
+    if (!checkoutId) {
+      return NextResponse.json({ error: "Missing checkout_id" }, { status: 400 });
+    }
+
+    const photoCount = items.reduce((sum, i) => sum + (Number(i.qty) || 0), 0);
     if (photoCount <= 0) {
       return NextResponse.json({ error: "Panier vide" }, { status: 400 });
     }
@@ -42,56 +46,61 @@ export async function POST(req: Request) {
     const totalCents = calculateTotalPriceCents(photoCount);
     const currency = "eur";
 
-    // ✅ insert order
-    const { data: order, error: orderErr } = await supabaseAdmin
+    // 1) UPSERT order (anti-doublon, même si POST multiple)
+    const { error: upsertErr } = await supabaseAdmin
       .from("orders")
-      .insert({
-        status: "PENDING",
-        total_cents: totalCents,
-        currency,
-        items,
-        photo_count: photoCount,
-      })
-      .select("id")
-      .single();
+      .upsert(
+        {
+          id: checkoutId,                 // ✅ ID stable
+          status: "PENDING",
+          total_cents: totalCents,
+          currency,
+          items,
+          photo_count: photoCount,
+        },
+        { onConflict: "id" }
+      );
 
-    if (orderErr || !order?.id) {
-      console.error("Supabase insert order error:", orderErr);
+    if (upsertErr) {
+      console.error("Supabase upsert order error:", upsertErr);
       return NextResponse.json(
-        { error: "Supabase order insert failed", details: orderErr },
+        { error: "Supabase order upsert failed", details: upsertErr },
         { status: 500 }
       );
     }
 
-    const orderId = order.id as string;
-
-    // ✅ create stripe session
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency,
-            product_data: { name: `${photoCount} photo(s) PhotographI.nes` },
-            unit_amount: totalCents,
+    // 2) Create Stripe session avec idempotencyKey = checkoutId (anti-double session aussi)
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency,
+              product_data: { name: `${photoCount} photo(s) PhotographI.nes` },
+              unit_amount: totalCents,
+            },
+            quantity: 1,
           },
-          quantity: 1,
-        },
-      ],
-      metadata: { order_id: orderId },
-      client_reference_id: orderId,
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success?order_id=${orderId}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/cart`,
-    });
+        ],
+        // ✅ Stripe collectera l'email de l’acheteur, dispo dans webhook: session.customer_details.email
+        metadata: { order_id: checkoutId },
+        client_reference_id: checkoutId,
 
-    // ✅ update stripe_session_id
+        success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success?order_id=${checkoutId}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/cart`,
+      },
+      { idempotencyKey: checkoutId }
+    );
+
+    // 3) Update order stripe_session_id (et on ne casse pas si retry)
     const { error: updErr } = await supabaseAdmin
       .from("orders")
       .update({ stripe_session_id: session.id })
-      .eq("id", orderId);
+      .eq("id", checkoutId);
 
-    if (updErr) console.error("Supabase update order error:", updErr);
+    if (updErr) console.error("Supabase update stripe_session_id error:", updErr);
 
     return NextResponse.json({ url: session.url });
   } catch (err: any) {
