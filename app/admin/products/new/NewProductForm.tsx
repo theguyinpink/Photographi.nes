@@ -8,11 +8,15 @@ import { AdminImageDropzone } from "@/components/ui/AdminImageDropzone";
 type FormState = {
   title: string;
   price: string;
+
   sport: string;
   team: string;
+  category: string;
   person: string;
+
   taken_at: string; // yyyy-mm-dd
   description: string;
+  is_active: boolean;
 };
 
 type Step = "idle" | "creating" | "uploading" | "done";
@@ -26,9 +30,11 @@ export default function NewProductForm() {
     price: "8.00",
     sport: "",
     team: "",
+    category: "",
     person: "",
     taken_at: "",
     description: "",
+    is_active: true,
   });
 
   const [file, setFile] = useState<File | null>(null);
@@ -42,9 +48,11 @@ export default function NewProductForm() {
       form.price.trim() !== "8.00" ||
       form.sport.trim() ||
       form.team.trim() ||
+      form.category.trim() ||
       form.person.trim() ||
       form.taken_at.trim() ||
       form.description.trim() ||
+      form.is_active !== true ||
       !!file
     );
   }, [form, file]);
@@ -87,9 +95,14 @@ export default function NewProductForm() {
         body: JSON.stringify({
           title: form.title.trim(),
           price: Number(form.price),
+          currency: "EUR",
+          is_active: form.is_active,
+
           sport: form.sport.trim() || null,
           team: form.team.trim() || null,
+          category: form.category.trim() || null,
           person: form.person.trim() || null,
+
           taken_at: form.taken_at ? new Date(form.taken_at).toISOString() : null,
           description: form.description.trim() || null,
         }),
@@ -104,25 +117,27 @@ export default function NewProductForm() {
       const id: string | undefined = created?.id;
       if (!id) throw new Error("ID produit manquant.");
 
-      // 2) Upload de l'image watermarkée
+      // 2) Upload DIRECT Supabase Storage (✅ plus de /api/.../image)
       setStep("uploading");
-      const fd = new FormData();
-      fd.append("image", file);
 
-      const uploadRes = await fetch(`/api/admin/products/${id}/image`, {
-        method: "POST",
-        body: fd,
+      const { uploadPreviewImageToSupabase } = await import("@/lib/uploadPreviewImage");
+      const publicUrl = await uploadPreviewImageToSupabase({ productId: id, file });
+
+      // 3) Update DB -> image_url
+      const patchRes = await fetch(`/api/admin/products/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ image_url: publicUrl }),
       });
 
-      if (!uploadRes.ok) {
-        const t = await uploadRes.text().catch(() => "Erreur upload");
+      if (!patchRes.ok) {
+        const t = await patchRes.text().catch(() => "Erreur update image_url");
         throw new Error(t);
       }
 
       setStep("done");
       toast.success("Produit créé + image uploadée ✅", "OK");
 
-      // 3) Done -> retour liste admin
       router.push("/admin/products");
       router.refresh();
     } catch (err: any) {
@@ -137,14 +152,16 @@ export default function NewProductForm() {
     step === "creating"
       ? "Création du produit…"
       : step === "uploading"
-        ? "Upload de l’image…"
-        : "";
+      ? "Upload de l’image…"
+      : "";
 
   return (
     <div className="mx-auto w-full max-w-3xl">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-zinc-900">Nouveau produit</h1>
-        <p className="mt-1 text-sm text-zinc-500">Une image watermarkée, une fiche clean, et c’est parti.</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          Une image watermarkée, une fiche clean, et c’est parti.
+        </p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-6">
@@ -201,7 +218,17 @@ export default function NewProductForm() {
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
+              <label className="text-sm font-medium text-zinc-900">Catégorie (optionnel)</label>
+              <input
+                value={form.category}
+                onChange={(e) => onChange("category", e.target.value)}
+                className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-zinc-400"
+                placeholder="Dunk / Défense / Portrait…"
+              />
+            </div>
+
+            <div>
               <label className="text-sm font-medium text-zinc-900">Personne (optionnel)</label>
               <input
                 value={form.person}
@@ -219,6 +246,18 @@ export default function NewProductForm() {
                 className="mt-1 min-h-30 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-400"
                 placeholder="Quelques lignes…"
               />
+            </div>
+
+            <div className="sm:col-span-2 flex items-center gap-2 pt-2">
+              <input
+                id="is_active"
+                type="checkbox"
+                checked={form.is_active}
+                onChange={(e) => onChange("is_active", e.target.checked)}
+              />
+              <label htmlFor="is_active" className="text-sm text-zinc-700">
+                Actif (visible en boutique)
+              </label>
             </div>
           </div>
         </div>

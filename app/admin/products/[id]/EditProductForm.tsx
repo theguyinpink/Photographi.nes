@@ -166,7 +166,7 @@ export default function EditProductForm({ product }: { product?: Product | null 
     const { uploadPreviewImageToSupabase } = await import("@/lib/uploadPreviewImage");
     const publicUrl = await uploadPreviewImageToSupabase({ productId: id, file });
 
-    // ✅ Update DB
+    // ✅ Update DB (ton PATCH route.ts accepte déjà image_url avec ce qu’on a fait)
     const r = await fetch(`/api/admin/products/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -175,6 +175,7 @@ export default function EditProductForm({ product }: { product?: Product | null 
 
     if (!r.ok) throw new Error(await r.text());
   }
+
 
 
 

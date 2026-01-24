@@ -23,7 +23,7 @@ export async function uploadPreviewImageToSupabase(params: {
   const safeName = safeFilename(params.file.name);
   const path = `flip/${params.productId}/${Date.now()}-${safeName}`;
 
-  const { error: upErr } = await supabase.storage
+  const { error } = await supabase.storage
     .from("previews")
     .upload(path, params.file, {
       upsert: true,
@@ -31,7 +31,7 @@ export async function uploadPreviewImageToSupabase(params: {
       cacheControl: "3600",
     });
 
-  if (upErr) throw new Error(upErr.message);
+  if (error) throw new Error(error.message);
 
   const { data } = supabase.storage.from("previews").getPublicUrl(path);
   return data.publicUrl;
