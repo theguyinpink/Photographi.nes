@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { addItem } from "./cartStorage";
+import { useToast } from "@/components/ui/ToastProvider";
 
 type Props = {
   product: {
@@ -14,6 +15,7 @@ type Props = {
 
 export default function AddToCartButton({ product }: Props) {
   const [loading, setLoading] = useState(false);
+  const toast = useToast(); // ✅ hook au bon endroit
 
   function onAdd() {
     setLoading(true);
@@ -28,7 +30,9 @@ export default function AddToCartButton({ product }: Props) {
         },
         1
       );
-      alert("Ajouté au panier ✅");
+
+      // ✅ TOAST au lieu d'alert
+      toast.success("Photo ajoutée au panier", "Panier");
     } finally {
       setLoading(false);
     }

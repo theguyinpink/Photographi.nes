@@ -22,7 +22,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-30">
         <div className="border-b border-black/10 bg-white/70 backdrop-blur">
           <div className="mx-auto max-w-6xl px-6">
-            <div className="flex h-16 items-center justify-between">
+            {/* ✅ Mobile: colonne + spacing / Desktop: comme avant */}
+            <div className="flex flex-col gap-3 py-3 sm:h-16 sm:flex-row sm:items-center sm:justify-between sm:py-0">
               <Link
                 href="/"
                 className="flex items-center gap-4 no-underline"
@@ -48,7 +49,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <div className="text-xs text-black/45">Gallery · Store</div>
                 </div>
               </Link>
-              <nav className="flex items-center gap-6">
+
+              {/* ✅ Petite séparation en mobile (premium & discret) */}
+              <div className="h-px w-full bg-black/5 sm:hidden" />
+
+              {/* ✅ Nav: wrap en mobile pour éviter superposition */}
+              <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:flex-nowrap sm:gap-6">
                 <NavLink href="/shop">Boutique</NavLink>
                 <NavLink href="/cart">Panier</NavLink>
                 <NavLink href="/admin">Admin</NavLink>
