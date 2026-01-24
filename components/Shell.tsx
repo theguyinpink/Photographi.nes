@@ -57,7 +57,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:flex-nowrap sm:gap-6">
                 <NavLink href="/shop">Boutique</NavLink>
                 <NavLink href="/cart">Panier</NavLink>
-                <NavLink href="/admin">Admin</NavLink>
               </nav>
             </div>
           </div>
@@ -67,8 +66,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto max-w-6xl px-6">{children}</main>
 
       <footer className="mx-auto max-w-6xl px-6 py-14 text-xs text-black/45">
-        © {new Date().getFullYear()} photographi.nes
-      </footer>
+  <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+    <div>
+      © {new Date().getFullYear()} photographi.nes
+    </div>
+
+    <Link
+      href="/admin"
+      className="text-xs text-black/40 hover:text-black/70 transition"
+    >
+      Accès photographe
+    </Link>
+  </div>
+</footer>
     </div>
   );
 }
