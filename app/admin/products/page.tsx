@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { createClient } from "@supabase/supabase-js";
 import { AdminCard } from "@/components/ui/AdminCard";
 import { AdminButton } from "@/components/ui/AdminButton";
+import DeleteProductButton from "@/components/admin/DeleteProductButton";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,20 @@ function serviceSupabase() {
   );
 }
 
+type ProductRow = {
+  id: string;
+  title: string | null;
+  price_cents: number | null;
+  is_active: boolean | null;
+  image_url: string | null;
+  created_at: string | null;
+  sport: string | null;
+  team: string | null;
+  person: string | null;
+  taken_at: string | null;
+  category?: string | null; // si tu l’as ajouté récemment
+};
+
 export default async function AdminProductsPage() {
   await requireAdmin();
   const supabase = serviceSupabase();
@@ -21,8 +36,12 @@ export default async function AdminProductsPage() {
   const { data: products } = await supabase
     .from("products")
     // ✅ Une seule image par produit (watermarkée) => products.image_url
-    .select("id,title,price_cents,is_active,image_url,created_at,sport,team,person,taken_at")
+    .select(
+      "id,title,price_cents,is_active,image_url,created_at,sport,team,person,taken_at,category"
+    )
     .order("created_at", { ascending: false });
+
+  const list = (products ?? []) as ProductRow[];
 
   return (
     <div className="py-12">
@@ -45,13 +64,11 @@ export default async function AdminProductsPage() {
       </div>
 
       <div className="mt-10">
-        <AdminCard
-          title="Liste"
-          subtitle="Clique sur un produit pour l’éditer."
-        >
+        <AdminCard title="Liste" subtitle="Clique sur un produit pour l’éditer.">
           <div className="divide-y divide-black/5">
-            {(products ?? []).map((p) => {
-              const price = ((p.price_cents ?? 0) / 100).toFixed(2);
+            {list.map((p) => {
+              const price = (((p.price_cents ?? 0) as number) / 100).toFixed(2);
+
               return (
                 <Link
                   key={p.id}
@@ -65,6 +82,7 @@ export default async function AdminProductsPage() {
                         src={p.image_url}
                         alt=""
                         className="h-full w-full object-cover"
+                        loading="lazy"
                       />
                     ) : null}
                   </div>
@@ -74,6 +92,7 @@ export default async function AdminProductsPage() {
                       <div className="truncate text-sm font-semibold">
                         {p.title ?? "Sans titre"}
                       </div>
+
                       <span
                         className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
                           p.is_active
@@ -88,22 +107,28 @@ export default async function AdminProductsPage() {
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-black/45">
                       {p.sport ? <span>Sport: {p.sport}</span> : null}
                       {p.team ? <span>Équipe: {p.team}</span> : null}
+                      {p.category ? <span>Catégorie: {p.category}</span> : null}
                       {p.person ? <span>Personne: {p.person}</span> : null}
                       {p.taken_at ? <span>Prise le: {p.taken_at}</span> : null}
                     </div>
                   </div>
 
-                  <div className="text-sm font-semibold tabular-nums text-black/70">
+                  <div className="hidden sm:block text-sm font-semibold tabular-nums text-black/70">
                     {price} €
                   </div>
 
-                  <div className="text-black/30 transition group-hover:text-black/60">
-                    →
+                  {/* ✅ Actions */}
+                  <div className="ml-2 flex items-center gap-3">
+                    <DeleteProductButton id={p.id} title={p.title} />
+                    <div className="text-black/30 transition group-hover:text-black/60">
+                      →
+                    </div>
                   </div>
                 </Link>
               );
             })}
-            {(products ?? []).length === 0 ? (
+
+            {list.length === 0 ? (
               <div className="py-10 text-sm text-black/50">
                 Aucun produit pour l’instant. Crée ton premier.
               </div>

@@ -80,3 +80,44 @@ export async function PATCH(
   if (error) return new NextResponse(error.message, { status: 400 });
   return NextResponse.json({ ok: true, updated: true });
 }
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  await requireAdmin();
+  const { id } = await context.params;
+
+  const supabase = serviceSupabase();
+
+  // (Optionnel mais conseillé) : récupérer image_url pour supprimer le fichier storage
+  const { data: prod, error: getErr } = await supabase
+    .from("products")
+    .select("image_url")
+    .eq("id", id)
+    .single();
+
+  if (getErr) {
+    return NextResponse.json({ error: getErr.message }, { status: 400 });
+  }
+
+  // 1) supprimer la row en DB
+  const { error: delErr } = await supabase.from("products").delete().eq("id", id);
+  if (delErr) {
+    return NextResponse.json({ error: delErr.message }, { status: 400 });
+  }
+
+  // 2) supprimer le fichier dans storage (si image_url correspond à previews/flip/..)
+  const url = prod?.image_url as string | null;
+  if (url && url.includes("/storage/v1/object/public/previews/")) {
+    const marker = "/storage/v1/object/public/previews/";
+    const path = url.split(marker)[1]; // ex: flip/<id>/<file>.png
+    if (path) {
+      // ignore erreur storage : on ne bloque pas la suppression DB
+      await supabase.storage.from("previews").remove([path]);
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
