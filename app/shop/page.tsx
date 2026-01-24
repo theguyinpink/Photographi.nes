@@ -60,14 +60,6 @@ export default async function ShopPage() {
             <div className="text-sm text-black/60">
               Aucun produit pour l’instant.
             </div>
-            <div className="mt-6">
-              <Link
-                href="/admin/products"
-                className="underline underline-offset-8 text-sm font-medium"
-              >
-                Aller à l’admin
-              </Link>
-            </div>
           </div>
         ) : (
           <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
