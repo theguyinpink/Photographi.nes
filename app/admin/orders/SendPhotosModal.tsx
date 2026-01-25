@@ -207,9 +207,6 @@ export default function SendPhotosModal({
               <div className="mt-2 rounded-2xl border border-black/10 bg-white p-4">
                 <div className="text-xs text-black/55">
                   Ajoute les fichiers correspondant à cette commande.
-                  <br />
-                  Conseil : si possible, renomme les fichiers avant (ex :
-                  <span className="font-mono"> commande-{order.id}-1.jpg</span>).
                 </div>
 
                 <input
