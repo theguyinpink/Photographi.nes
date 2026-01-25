@@ -11,6 +11,7 @@ import {
   clearCart,
 } from "@/components/cart/cartStorage";
 import { calculateTotalPrice } from "@/lib/pricing";
+import { Shell } from "@/components/Shell";
 
 /* ---------- helpers ---------- */
 
@@ -117,6 +118,7 @@ export default function CartPage() {
   /* ---------- render ---------- */
 
   return (
+    <Shell>
     <main className="mx-auto max-w-4xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
@@ -270,5 +272,6 @@ export default function CartPage() {
         </div>
       )}
     </main>
+    </Shell>
   );
 }
