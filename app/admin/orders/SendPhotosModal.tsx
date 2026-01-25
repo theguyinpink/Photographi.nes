@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 
 type Item = { id: string; qty?: number };
@@ -34,7 +34,6 @@ export default function SendPhotosModal({
   // Références de la commande (pour aider Inès à savoir quoi envoyer)
   const refs = useMemo(() => {
     const normalized = Array.isArray(items) ? items : [];
-    // on “déplie” les qty pour afficher une ligne par photo si besoin
     const expanded: Item[] = [];
     for (const it of normalized) {
       const qty = Math.max(1, it.qty ?? 1);
@@ -47,19 +46,32 @@ export default function SendPhotosModal({
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState<File[]>([]);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
 
     setSubject(`Vos photos PhotographI.nes (commande ${order.id})`);
-    setMessage(
-      `Bonjour,\n\nMerci pour votre achat ! Voici vos photos :\n`
-    );
+    setMessage(`Bonjour,\n\nMerci pour votre achat ! Voici vos photos :\n`);
     setFiles([]);
+
+    // reset input file (sinon parfois il garde l’ancien état)
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [open, order.id]);
 
   function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const arr = Array.from(e.target.files ?? []);
     setFiles(arr);
+  }
+
+  function openFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    // on ne peut pas enlever un fichier de l'input directement,
+    // mais comme on envoie via FormData à partir de state, c'est ok.
   }
 
   async function submit() {
@@ -101,6 +113,13 @@ export default function SendPhotosModal({
   }
 
   if (!open) return null;
+
+  const filesLabel =
+    files.length === 0
+      ? "Aucun fichier sélectionné"
+      : files.length === 1
+      ? "1 fichier sélectionné"
+      : `${files.length} fichiers sélectionnés`;
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
@@ -198,7 +217,7 @@ export default function SendPhotosModal({
               </div>
             </div>
 
-            {/* ✅ Upload manuel */}
+            {/* ✅ Upload manuel — bouton FR */}
             <div>
               <label className="text-xs uppercase tracking-[0.18em] text-black/45">
                 Fichiers à envoyer (Inès ajoute ici)
@@ -207,29 +226,67 @@ export default function SendPhotosModal({
               <div className="mt-2 rounded-2xl border border-black/10 bg-white p-4">
                 <div className="text-xs text-black/55">
                   Ajoute les fichiers correspondant à cette commande.
+                  <br />
+                  Conseil : si possible, renomme les fichiers avant (ex :
+                  <span className="font-mono"> commande-{order.id}-1.jpg</span>).
                 </div>
 
+                {/* input caché */}
                 <input
+                  ref={fileInputRef}
                   type="file"
                   multiple
                   accept="image/*"
-                  className="mt-3 block w-full text-sm"
+                  className="hidden"
                   onChange={onPickFiles}
                 />
 
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={openFilePicker}
+                    disabled={busy}
+                    className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/75 hover:bg-black/3 disabled:opacity-50"
+                  >
+                    Choisir des fichiers
+                  </button>
+
+                  <div className="text-xs text-black/55">{filesLabel}</div>
+                </div>
+
+                {/* liste des fichiers */}
                 {files.length > 0 ? (
-                  <div className="mt-3 text-xs text-black/60">
-                    {files.length} fichier(s) sélectionné(s) :
-                    <ul className="mt-2 list-disc pl-5">
-                      {files.map((f) => (
-                        <li
-                          key={`${f.name}-${f.size}`}
-                          className="font-mono text-[11px] text-black/45"
+                  <div className="mt-4">
+                    <div className="text-xs font-semibold text-black/70">
+                      Fichiers sélectionnés
+                    </div>
+
+                    <div className="mt-2 flex flex-col gap-2">
+                      {files.map((f, idx) => (
+                        <div
+                          key={`${f.name}-${f.size}-${idx}`}
+                          className="flex items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3"
                         >
-                          {f.name} ({Math.round((f.size / 1024 / 1024) * 100) / 100} MB)
-                        </li>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-black/75">
+                              {f.name}
+                            </div>
+                            <div className="text-[11px] text-black/45 font-mono">
+                              {Math.round((f.size / 1024 / 1024) * 100) / 100} MB
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeFile(idx)}
+                            disabled={busy}
+                            className="ml-auto rounded-2xl border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-black/70 hover:bg-black/3 disabled:opacity-50"
+                          >
+                            Retirer
+                          </button>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 ) : null}
               </div>
