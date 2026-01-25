@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
+import SendPhotosModal from "./SendPhotosModal";
 
 type Item = { id: string; qty?: number };
 
@@ -18,7 +19,10 @@ type Order = {
   sent_at?: string | null;
 };
 
-type ProductsMap = Record<string, { id: string; title: string; image_url: string | null }>;
+type ProductsMap = Record<
+  string,
+  { id: string; title: string; image_url: string | null }
+>;
 
 function euros(cents: number | null, currency?: string | null) {
   const c = cents ?? 0;
@@ -35,6 +39,10 @@ export default function OrdersTable({
 }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [savingId, setSavingId] = useState<string | null>(null);
+
+  // ✅ modal state (DOIT être dans le composant)
+  const [sendFor, setSendFor] = useState<Order | null>(null);
+
   const toast = useToast();
 
   const rows = useMemo(() => {
@@ -55,19 +63,25 @@ export default function OrdersTable({
         body: JSON.stringify({ status: nextStatus }),
       });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Erreur");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((json as any)?.error ?? "Erreur");
 
       setOrders((prev) =>
         prev.map((o) =>
           o.id === orderId
-            ? { ...o, status: json.order.status, sent_at: json.order.sent_at ?? null }
+            ? {
+                ...o,
+                status: (json as any).order.status,
+                sent_at: (json as any).order.sent_at ?? null,
+              }
             : o
         )
       );
 
       toast.success(
-        nextStatus === "SENT" ? "Commande marquée comme envoyée" : "Statut mis à jour",
+        nextStatus === "SENT"
+          ? "Commande marquée comme envoyée"
+          : "Statut mis à jour",
         "Commandes"
       );
     } catch (e: any) {
@@ -80,7 +94,9 @@ export default function OrdersTable({
   return (
     <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
       <div className="p-4 sm:p-6">
-        <div className="text-sm font-semibold text-black/80">Liste des commandes</div>
+        <div className="text-sm font-semibold text-black/80">
+          Liste des commandes
+        </div>
         <div className="mt-1 text-xs text-black/45">
           Détail des photos achetées (miniatures) + suivi d’envoi.
         </div>
@@ -96,6 +112,7 @@ export default function OrdersTable({
               <th className="px-6 py-4">Email</th>
               <th className="px-6 py-4">Statut</th>
               <th className="px-6 py-4">Envoyée</th>
+              <th className="px-6 py-4">Actions</th>
             </tr>
           </thead>
 
@@ -113,13 +130,15 @@ export default function OrdersTable({
                   <td className="px-6 py-4">
                     <div className="font-mono text-xs text-black/70">{o.id}</div>
                     <div className="mt-1 text-xs text-black/40">
-                      {o.created_at ? new Date(o.created_at).toLocaleString() : ""}
+                      {o.created_at
+                        ? new Date(o.created_at).toLocaleString()
+                        : ""}
                     </div>
                   </td>
 
                   {/* ✅ Photos details */}
                   <td className="px-6 py-4">
-                    <div className="text-xs text-black/55 mb-2">
+                    <div className="mb-2 text-xs text-black/55">
                       {(o as any).__photoCount} photo(s)
                     </div>
 
@@ -132,7 +151,10 @@ export default function OrdersTable({
                           const qty = it.qty ?? 1;
 
                           return (
-                            <div key={`${it.id}-${idx}`} className="flex items-center gap-3">
+                            <div
+                              key={`${it.id}-${idx}`}
+                              className="flex items-center gap-3"
+                            >
                               <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-black/10 bg-black/2">
                                 {p?.image_url ? (
                                   <Image
@@ -149,13 +171,15 @@ export default function OrdersTable({
                                 <div className="truncate text-sm font-medium text-black/75">
                                   {p?.title ?? "Photo supprimée / introuvable"}
                                 </div>
-                                <div className="font-mono text-[11px] text-black/35 truncate">
+                                <div className="truncate font-mono text-[11px] text-black/35">
                                   {it.id}
                                 </div>
                               </div>
 
                               {qty > 1 ? (
-                                <span className="ml-auto text-xs text-black/50">× {qty}</span>
+                                <span className="ml-auto text-xs text-black/50">
+                                  × {qty}
+                                </span>
                               ) : null}
                             </div>
                           );
@@ -204,6 +228,22 @@ export default function OrdersTable({
                       </div>
                     ) : null}
                   </td>
+
+                  <td className="px-6 py-4">
+                    <button
+                      className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-black/75 hover:bg-black/3 disabled:opacity-50"
+                      disabled={!(isPaid || isSent) || locked}
+                      onClick={() => setSendFor(o)}
+                    >
+                      Envoyer les photos
+                    </button>
+
+                    {!(isPaid || isSent) ? (
+                      <div className="mt-2 text-xs text-black/35">
+                        (Disponible après paiement)
+                      </div>
+                    ) : null}
+                  </td>
                 </tr>
               );
             })}
@@ -214,6 +254,28 @@ export default function OrdersTable({
       {rows.length === 0 ? (
         <div className="p-10 text-sm text-black/60">Aucune commande.</div>
       ) : null}
+
+      {/* ✅ Modal d’envoi */}
+      <SendPhotosModal
+        open={!!sendFor}
+        onClose={() => setSendFor(null)}
+        order={{
+          id: sendFor?.id ?? "",
+          email: sendFor?.email ?? null,
+        }}
+        items={(((sendFor as any)?.__items ?? []) as Item[]) ?? []}
+        productsMap={productsMap}
+        onSent={(payload) => {
+          if (!sendFor) return;
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === sendFor.id
+                ? { ...o, status: payload.status, sent_at: payload.sent_at }
+                : o
+            )
+          );
+        }}
+      />
     </div>
   );
 }

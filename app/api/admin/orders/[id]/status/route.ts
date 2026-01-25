@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/requireAdmin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function supabaseAdmin() {
   return createClient(
@@ -18,9 +20,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ Sécurité : admin only
+    await requireAdmin();
+
     const { id } = await params;
-    const body = await req.json();
-    const status = String(body?.status ?? "").toUpperCase();
+
+    const body = await req.json().catch(() => ({}));
+    const status = String((body as any)?.status ?? "")
+      .trim()
+      .toUpperCase();
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing order id" }, { status: 400 });
+    }
 
     if (!ALLOWED.has(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
@@ -29,9 +41,13 @@ export async function POST(
     const supabase = supabaseAdmin();
 
     const patch: Record<string, any> = { status };
+
     // ✅ historiser l’envoi
-    if (status === "SENT") patch.sent_at = new Date().toISOString();
-    if (status !== "SENT") patch.sent_at = null;
+    if (status === "SENT") {
+      patch.sent_at = new Date().toISOString();
+    } else {
+      patch.sent_at = null;
+    }
 
     const { data, error } = await supabase
       .from("orders")
@@ -46,6 +62,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true, order: data });
   } catch (e: any) {
+    // requireAdmin peut throw, etc.
     return NextResponse.json(
       { error: e?.message ?? "Server error" },
       { status: 500 }
