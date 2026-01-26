@@ -23,15 +23,32 @@ function supabaseAdmin() {
 // Bucket de livraison (PRIVATE)
 const DELIVERY_BUCKET = process.env.DELIVERY_BUCKET ?? "deliveries";
 // Durée des liens signés (en secondes)
-const SIGNED_URL_EXPIRES = Number(process.env.SIGNED_URL_EXPIRES ?? 60 * 60 * 24); // 24h
+const SIGNED_URL_EXPIRES = Number(
+  process.env.SIGNED_URL_EXPIRES ?? 60 * 60 * 24
+); // 24h
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // ✅ IMPORTANT : en API route, on ne doit jamais laisser un redirect casser le handler
   try {
     await requireAdmin();
+  } catch (e: any) {
+    const msg = String(e?.digest ?? e?.message ?? e ?? "");
+    if (msg.includes("NEXT_REDIRECT")) {
+      return NextResponse.json(
+        { error: "Unauthorized (admin required)" },
+        { status: 401 }
+      );
+    }
+    return NextResponse.json(
+      { error: msg || "Unauthorized (admin required)" },
+      { status: 401 }
+    );
+  }
 
+  try {
     const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: "Missing order id" }, { status: 400 });
@@ -90,7 +107,7 @@ export async function POST(
       const ab = await file.arrayBuffer();
       const buffer = Buffer.from(ab);
 
-      const safeName = sanitizeFilename(file.name || "photo.jpg");
+      const safeName = sanitizeFilename((file as any).name || "photo.jpg");
       const ext = safeName.includes(".") ? safeName.split(".").pop() : "jpg";
       const stamp = Date.now();
       const path = `orders/${order.id}/${stamp}-${randomId(6)}.${ext}`;
@@ -153,7 +170,9 @@ export async function POST(
       uploaded
         .map(
           (u) =>
-            `<li><strong>${escapeHtml(u.name)}</strong><br/><a href="${u.url}" target="_blank" rel="noreferrer">${u.url}</a></li>`
+            `<li><strong>${escapeHtml(
+              u.name
+            )}</strong><br/><a href="${u.url}" target="_blank" rel="noreferrer">${u.url}</a></li>`
         )
         .join("") +
       `</ol>` +
@@ -189,7 +208,6 @@ export async function POST(
 }
 
 function sanitizeFilename(name: string) {
-  // enlève chemins + caractères relous
   const base = name.split("/").pop()?.split("\\").pop() ?? "photo.jpg";
   return base.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
 }
@@ -197,7 +215,9 @@ function sanitizeFilename(name: string) {
 function randomId(len: number) {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let out = "";
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < len; i++) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
   return out;
 }
 

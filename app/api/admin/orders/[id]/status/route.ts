@@ -19,10 +19,24 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // ✅ IMPORTANT : en API route, on ne doit jamais laisser un redirect casser le handler
   try {
-    // ✅ Sécurité : admin only
     await requireAdmin();
+  } catch (e: any) {
+    const msg = String(e?.digest ?? e?.message ?? e ?? "");
+    if (msg.includes("NEXT_REDIRECT")) {
+      return NextResponse.json(
+        { error: "Unauthorized (admin required)" },
+        { status: 401 }
+      );
+    }
+    return NextResponse.json(
+      { error: msg || "Unauthorized (admin required)" },
+      { status: 401 }
+    );
+  }
 
+  try {
     const { id } = await params;
 
     const body = await req.json().catch(() => ({}));
@@ -42,7 +56,6 @@ export async function POST(
 
     const patch: Record<string, any> = { status };
 
-    // ✅ historiser l’envoi
     if (status === "SENT") {
       patch.sent_at = new Date().toISOString();
     } else {
@@ -62,7 +75,6 @@ export async function POST(
 
     return NextResponse.json({ ok: true, order: data });
   } catch (e: any) {
-    // requireAdmin peut throw, etc.
     return NextResponse.json(
       { error: e?.message ?? "Server error" },
       { status: 500 }
