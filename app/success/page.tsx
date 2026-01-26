@@ -44,8 +44,6 @@ export default async function SuccessPage({
 
   const order = data as Order | null;
 
-
-
   localStorage.removeItem("checkout_id");
 
   return (
@@ -63,6 +61,20 @@ export default async function SuccessPage({
           <p className="mt-3 max-w-xl text-sm leading-6 text-black/60">
             Merci ! Ton paiement a bien été pris en compte.
           </p>
+          <div className="mt-6 rounded-2xl border border-black/10 bg-black/2 p-4">
+            <div className="text-sm font-semibold text-black/80">
+              📩 Email de livraison
+            </div>
+            <p className="mt-2 text-sm text-black/65 leading-relaxed">
+              Nous allons vous envoyer un email avec vos liens de
+              téléchargement dans les 24/48h. Si vous ne le voyez pas dans votre boite reception,
+              pensez à vérifier vos{" "}
+              <strong>spams / courriers indésirables</strong> (Gmail, Outlook…).
+              <br />
+              Vous pouvez aussi ajouter notre adresse à vos contacts pour être
+              sûr de recevoir les prochains emails.
+            </p>
+          </div>
 
           <div className="mt-10 overflow-hidden rounded-[28px] border border-black/10 bg-white">
             <div className="p-6 sm:p-8">
@@ -98,7 +110,9 @@ export default async function SuccessPage({
               ) : (
                 <div className="grid gap-6">
                   <div className="grid gap-2">
-                    <div className="text-sm text-black/50">Numéro de commande</div>
+                    <div className="text-sm text-black/50">
+                      Numéro de commande
+                    </div>
                     <div className="rounded-2xl border border-black/10 bg-black/2 px-4 py-3 font-mono text-xs text-black/70">
                       {order.id}
                     </div>
@@ -162,7 +176,8 @@ export default async function SuccessPage({
                   </div>
 
                   <div className="text-xs text-black/40">
-                    Prochaine étape : livraison des photos HD après confirmation webhook.
+                    Prochaine étape : livraison des photos HD après confirmation
+                    webhook.
                   </div>
                 </div>
               )}
