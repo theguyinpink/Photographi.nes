@@ -34,6 +34,7 @@ export async function sendMail(opts: {
   await transporter.sendMail({
     from,
     to: opts.to,
+    replyTo: from, // 👈 important
     subject: opts.subject,
     text: opts.text,
     html: opts.html,

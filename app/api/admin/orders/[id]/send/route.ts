@@ -16,7 +16,7 @@ function supabaseAdmin() {
   return createClient(
     must("NEXT_PUBLIC_SUPABASE_URL"),
     must("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 }
 
@@ -24,12 +24,12 @@ function supabaseAdmin() {
 const DELIVERY_BUCKET = process.env.DELIVERY_BUCKET ?? "deliveries";
 // Durée des liens signés (en secondes)
 const SIGNED_URL_EXPIRES = Number(
-  process.env.SIGNED_URL_EXPIRES ?? 60 * 60 * 24
+  process.env.SIGNED_URL_EXPIRES ?? 60 * 60 * 24,
 ); // 24h
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   // ✅ IMPORTANT : en API route, on ne doit jamais laisser un redirect casser le handler
   try {
@@ -39,12 +39,12 @@ export async function POST(
     if (msg.includes("NEXT_REDIRECT")) {
       return NextResponse.json(
         { error: "Unauthorized (admin required)" },
-        { status: 401 }
+        { status: 401 },
       );
     }
     return NextResponse.json(
       { error: msg || "Unauthorized (admin required)" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -66,7 +66,7 @@ export async function POST(
     if (orderErr || !order) {
       return NextResponse.json(
         { error: orderErr?.message ?? "Order not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -74,7 +74,7 @@ export async function POST(
     if (!to) {
       return NextResponse.json(
         { error: "Cette commande n'a pas d'email." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -94,7 +94,7 @@ export async function POST(
     if (!files || files.length === 0) {
       return NextResponse.json(
         { error: "Aucun fichier reçu. Ajoute au moins une photo." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -127,7 +127,7 @@ export async function POST(
       if (upErr) {
         return NextResponse.json(
           { error: `Upload failed: ${upErr.message}` },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -138,7 +138,7 @@ export async function POST(
       if (signErr || !signed?.signedUrl) {
         return NextResponse.json(
           { error: `Signed URL failed: ${signErr?.message ?? "unknown"}` },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -152,7 +152,7 @@ export async function POST(
     if (uploaded.length === 0) {
       return NextResponse.json(
         { error: "Aucun fichier uploadé (format invalide ?)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -160,23 +160,48 @@ export async function POST(
     const text =
       `${message}\n\n` +
       uploaded
-        .map((u, i) => `${i + 1}. ${u.name}\n${u.url}`)
+        .map((u, i) => `${i + 1}. ${u.name}\nTélécharger : ${u.url}`)
         .join("\n\n") +
       `\n\nBonne journée,\nPhotographI.nes`;
 
     const html =
       `<p>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>` +
-      `<ol>` +
+      `<ul style="padding-left:0;list-style:none;">` +
       uploaded
         .map(
           (u) =>
-            `<li><strong>${escapeHtml(
-              u.name
-            )}</strong><br/><a href="${u.url}" target="_blank" rel="noreferrer">${u.url}</a></li>`
+            `<li style="margin-bottom:20px;">
+          <div style="font-weight:600;margin-bottom:6px;">
+            ${escapeHtml(u.name)}
+          </div>
+          <a href="${u.url}" target="_blank" rel="noreferrer"
+             style="
+               display:inline-block;
+               padding:10px 16px;
+               border-radius:10px;
+               background:#111;
+               color:#fff;
+               text-decoration:none;
+               font-weight:600;
+               font-size:14px;
+             ">
+            Télécharger la photo
+          </a>
+          <div style="margin-top:6px;font-size:12px;color:#666;">
+            Lien valable ${Math.round(SIGNED_URL_EXPIRES / 3600)} h
+          </div>
+        </li>`,
         )
         .join("") +
-      `</ol>` +
-      `<p>Bonne journée,<br/>PhotographI.nes</p>`;
+      `</ul>` +
+      `<p style="margin-top:20px;">
+     En cas de problème, vous pouvez répondre directement à cet email.
+   </p>
+   <p style="margin-top:12px;">
+     Bonne journée,<br/>
+     <strong>Inès</strong><br/>
+     PhotographI.nes
+   </p>`;
 
     // 5) Envoyer email
     await sendMail({ to, subject, text, html });
@@ -202,7 +227,7 @@ export async function POST(
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
