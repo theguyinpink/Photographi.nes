@@ -40,6 +40,7 @@ export async function POST(
   const { data, error } = await supabase.storage
     .from("previews")
     .createSignedUploadUrl(path);
+    
 
   if (error || !data?.signedUrl) {
     return NextResponse.json(

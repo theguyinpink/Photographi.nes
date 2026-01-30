@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { supabasePublic } from "@/lib/supabase-public";
 import Filters from "./Filters";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,8 +27,8 @@ function uniqSorted(values: (string | null | undefined)[]) {
     new Set(
       values
         .map((v) => (typeof v === "string" ? v.trim() : ""))
-        .filter((v) => v.length > 0)
-    )
+        .filter((v) => v.length > 0),
+    ),
   ).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
@@ -47,7 +48,7 @@ export default async function ShopPage({
   let q = supabasePublic
     .from("products")
     .select(
-      "id,title,price_cents,currency,image_url,created_at,sport,team,category,person"
+      "id,title,price_cents,currency,image_url,created_at,sport,team,category,person",
     )
     .eq("is_active", true);
 
@@ -88,8 +89,7 @@ export default async function ShopPage({
               Boutique
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-black/60">
-              Clique sur une photo pour ouvrir la fiche et
-              l’ajouter au panier.
+              Clique sur une photo pour ouvrir la fiche et l’ajouter au panier.
             </p>
           </div>
 
@@ -137,12 +137,16 @@ export default async function ShopPage({
                   <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white">
                     <div className="p-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={src}
-                        alt={p.title}
-                        className="h-auto w-full object-contain"
-                        loading="lazy"
-                      />
+                      <div className="relative aspect-4/3 w-full overflow-hidden rounded-2xl bg-black/5">
+                        <Image
+                          src={src}
+                          alt={p.title}
+                          fill
+                          className="object-contain"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          quality={65}
+                        />
+                      </div>
                     </div>
 
                     <div className="px-5 py-5">
