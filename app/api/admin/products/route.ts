@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createClient } from "@supabase/supabase-js";
+import { ca } from "zod/locales";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
       description: body.description ?? null,
       sport: body.sport ?? null,
       team: body.team ?? null,
+      category: body.category ?? null,
       person: body.person ?? null,
       taken_at: body.taken_at ?? null,
       image_url: null,
