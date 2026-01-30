@@ -143,8 +143,9 @@ export default async function ShopPage({
                           alt={p.title}
                           fill
                           className="object-contain"
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          sizes="(max-width: 400px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           quality={65}
+                        
                         />
                       </div>
                     </div>

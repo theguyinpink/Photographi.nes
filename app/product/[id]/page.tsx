@@ -74,7 +74,7 @@ export default async function ProductPage({
                   alt={p.title ?? "Photo"}
                   fill
                   className="object-contain"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  sizes="(max-width: 900px) 100vw, 50vw"
                   priority
                   quality={65}
                   // ✅ si tu n'as pas encore configuré next.config images, active ça temporairement
