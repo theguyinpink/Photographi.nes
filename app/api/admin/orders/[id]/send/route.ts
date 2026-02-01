@@ -16,36 +16,34 @@ function supabaseAdmin() {
   return createClient(
     must("NEXT_PUBLIC_SUPABASE_URL"),
     must("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { persistSession: false } },
+    { auth: { persistSession: false } }
   );
 }
 
 // Bucket de livraison (PRIVATE)
 const DELIVERY_BUCKET = process.env.DELIVERY_BUCKET ?? "deliveries";
 // Durée des liens signés (en secondes)
-const SIGNED_URL_EXPIRES = Number(
-  process.env.SIGNED_URL_EXPIRES ?? 60 * 60 * 24,
-); // 24h
+const SIGNED_URL_EXPIRES = Number(process.env.SIGNED_URL_EXPIRES ?? 60 * 60 * 24); // 24h
+
+type SendBody = {
+  subject?: string;
+  message?: string;
+  paths?: string[];
+};
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // ✅ IMPORTANT : en API route, on ne doit jamais laisser un redirect casser le handler
+  // ✅ IMPORTANT : empêcher NEXT_REDIRECT de casser le handler
   try {
     await requireAdmin();
   } catch (e: any) {
     const msg = String(e?.digest ?? e?.message ?? e ?? "");
     if (msg.includes("NEXT_REDIRECT")) {
-      return NextResponse.json(
-        { error: "Unauthorized (admin required)" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Unauthorized (admin required)" }, { status: 401 });
     }
-    return NextResponse.json(
-      { error: msg || "Unauthorized (admin required)" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: msg || "Unauthorized (admin required)" }, { status: 401 });
   }
 
   try {
@@ -66,7 +64,7 @@ export async function POST(
     if (orderErr || !order) {
       return NextResponse.json(
         { error: orderErr?.message ?? "Order not found" },
-        { status: 404 },
+        { status: 404 }
       );
     }
 
@@ -74,60 +72,37 @@ export async function POST(
     if (!to) {
       return NextResponse.json(
         { error: "Cette commande n'a pas d'email." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    // 2) Lire le form
-    const form = await req.formData();
-    const subjectRaw = String(form.get("subject") ?? "").trim();
-    const messageRaw = String(form.get("message") ?? "").trim();
+    // 2) Lire le JSON (plus de formData, plus de fichiers qui transitent par Vercel)
+    const body = (await req.json().catch(() => ({}))) as SendBody;
 
-    const subject =
-      subjectRaw || `Vos photos PhotographI.nes (commande ${order.id})`;
+    const subjectRaw = String(body?.subject ?? "").trim();
+    const messageRaw = String(body?.message ?? "").trim();
+    const paths = Array.isArray(body?.paths) ? body.paths.filter(Boolean) : [];
 
-    const message =
-      messageRaw || `Bonjour,\n\nMerci pour votre achat ! Voici vos photos :\n`;
+    const subject = subjectRaw || `Vos photos PhotographI.nes (commande ${order.id})`;
+    const message = messageRaw || `Bonjour,\n\nMerci pour votre achat ! Voici vos photos :\n`;
 
-    const files = form.getAll("files").filter(Boolean) as unknown as File[];
-
-    if (!files || files.length === 0) {
+    if (paths.length === 0) {
       return NextResponse.json(
-        { error: "Aucun fichier reçu. Ajoute au moins une photo." },
-        { status: 400 },
+        { error: "Aucun fichier uploadé. Ajoute au moins une photo." },
+        { status: 400 }
       );
     }
 
-    // 3) Upload + signed urls
+    // 3) Générer des liens signés de téléchargement pour chaque path
+    //    (les fichiers sont déjà dans Storage, on ne ré-upload rien ici)
     const uploaded: { name: string; path: string; url: string }[] = [];
 
-    for (const file of files) {
-      if (!file || typeof (file as any).arrayBuffer !== "function") continue;
-
-      const ab = await file.arrayBuffer();
-      const buffer = Buffer.from(ab);
-
-      const safeName = sanitizeFilename((file as any).name || "photo.jpg");
-      const ext = safeName.includes(".") ? safeName.split(".").pop() : "jpg";
-      const stamp = Date.now();
-      const path = `orders/${order.id}/${stamp}-${randomId(6)}.${ext}`;
-
-      const contentType =
-        (file as any).type && String((file as any).type).includes("/")
-          ? String((file as any).type)
-          : "application/octet-stream";
-
-      const { error: upErr } = await supabase.storage
-        .from(DELIVERY_BUCKET)
-        .upload(path, buffer, {
-          contentType,
-          upsert: false,
-        });
-
-      if (upErr) {
+    for (const path of paths) {
+      // sécurise un minimum : on attend des paths dans orders/<orderId>/...
+      if (!String(path).startsWith(`orders/${order.id}/`)) {
         return NextResponse.json(
-          { error: `Upload failed: ${upErr.message}` },
-          { status: 500 },
+          { error: `Path invalide: ${path}` },
+          { status: 400 }
         );
       }
 
@@ -138,25 +113,15 @@ export async function POST(
       if (signErr || !signed?.signedUrl) {
         return NextResponse.json(
           { error: `Signed URL failed: ${signErr?.message ?? "unknown"}` },
-          { status: 500 },
+          { status: 500 }
         );
       }
 
-      uploaded.push({
-        name: safeName,
-        path,
-        url: signed.signedUrl,
-      });
+      const name = getNameFromPath(path);
+      uploaded.push({ name, path, url: signed.signedUrl });
     }
 
-    if (uploaded.length === 0) {
-      return NextResponse.json(
-        { error: "Aucun fichier uploadé (format invalide ?)" },
-        { status: 400 },
-      );
-    }
-
-    // 4) Construire email
+    // 4) Construire email (boutons “Télécharger la photo”)
     const text =
       `${message}\n\n` +
       uploaded
@@ -166,42 +131,42 @@ export async function POST(
 
     const html =
       `<p>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>` +
-      `<ul style="padding-left:0;list-style:none;">` +
+      `<ul style="padding-left:0;list-style:none;margin:0;">` +
       uploaded
         .map(
           (u) =>
-            `<li style="margin-bottom:20px;">
-          <div style="font-weight:600;margin-bottom:6px;">
-            ${escapeHtml(u.name)}
-          </div>
-          <a href="${u.url}" target="_blank" rel="noreferrer"
-             style="
-               display:inline-block;
-               padding:10px 16px;
-               border-radius:10px;
-               background:#111;
-               color:#fff;
-               text-decoration:none;
-               font-weight:600;
-               font-size:14px;
-             ">
-            Télécharger la photo
-          </a>
-          <div style="margin-top:6px;font-size:12px;color:#666;">
-            Lien valable ${Math.round(SIGNED_URL_EXPIRES / 3600)} h
-          </div>
-        </li>`,
+            `<li style="margin:0 0 18px 0;">
+              <div style="font-weight:600;margin-bottom:6px;">
+                ${escapeHtml(u.name)}
+              </div>
+              <a href="${u.url}" target="_blank" rel="noreferrer"
+                 style="
+                   display:inline-block;
+                   padding:10px 16px;
+                   border-radius:10px;
+                   background:#111;
+                   color:#fff;
+                   text-decoration:none;
+                   font-weight:600;
+                   font-size:14px;
+                 ">
+                Télécharger la photo
+              </a>
+              <div style="margin-top:6px;font-size:12px;color:#666;">
+                Lien valable ${Math.round(SIGNED_URL_EXPIRES / 3600)} h
+              </div>
+            </li>`
         )
         .join("") +
       `</ul>` +
-      `<p style="margin-top:20px;">
-     En cas de problème, vous pouvez répondre directement à cet email.
-   </p>
-   <p style="margin-top:12px;">
-     Bonne journée,<br/>
-     <strong>Inès</strong><br/>
-     PhotographI.nes
-   </p>`;
+      `<p style="margin-top:18px;">
+        En cas de problème, vous pouvez répondre directement à cet email.
+      </p>
+      <p style="margin-top:12px;">
+        Bonne journée,<br/>
+        <strong>Inès</strong><br/>
+        PhotographI.nes
+      </p>`;
 
     // 5) Envoyer email
     await sendMail({ to, subject, text, html });
@@ -227,23 +192,16 @@ export async function POST(
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
-function sanitizeFilename(name: string) {
-  const base = name.split("/").pop()?.split("\\").pop() ?? "photo.jpg";
-  return base.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
-}
-
-function randomId(len: number) {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let out = "";
-  for (let i = 0; i < len; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return out;
+function getNameFromPath(path: string) {
+  const base = path.split("/").pop() ?? "photo.jpg";
+  // enlève le timestamp au début si présent
+  const cleaned = base.replace(/^\d+-/, "");
+  return cleaned.slice(0, 160);
 }
 
 function escapeHtml(s: string) {

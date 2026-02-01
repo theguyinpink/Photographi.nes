@@ -83,68 +83,51 @@ export default function SendPhotosModal({
 
     setBusy(true);
     try {
-      const fd = new FormData();
-      fd.append("subject", subject);
-      fd.append("message", message);
-      for (const f of files) fd.append("files", f);
+      // 1) upload direct vers Supabase (plus de 413 Vercel)
+      const paths: string[] = [];
 
+      for (const f of files) {
+        const r = await fetch(`/api/admin/orders/${order.id}/delivery-upload`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            fileName: f.name,
+            contentType: f.type || "application/octet-stream",
+          }),
+        });
+
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok)
+          throw new Error(j?.error ?? "Impossible de préparer l’upload");
+
+        const signedUrl = j.signedUrl as string;
+        const path = j.path as string;
+
+        const up = await fetch(signedUrl, {
+          method: "PUT",
+          headers: { "content-type": f.type || "application/octet-stream" },
+          body: f,
+        });
+
+        if (!up.ok) throw new Error(`Upload Supabase failed (${up.status})`);
+
+        paths.push(path);
+      }
+
+      // 2) envoyer email (payload léger)
       const res = await fetch(`/api/admin/orders/${order.id}/send`, {
         method: "POST",
-        body: fd,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subject, message, paths }),
       });
 
-      // ✅ On ne suppose PAS que la réponse est JSON.
-      const ct = res.headers.get("content-type") || "";
-      let payload: any = null;
-      let textBody = "";
-
-      if (ct.includes("application/json")) {
-        payload = await res.json().catch(() => null);
-      } else {
-        textBody = await res.text().catch(() => "");
-      }
-
-      if (!res.ok) {
-        // 401 -> message clair (souvent le cas sur iPad si session pas valide)
-        if (res.status === 401) {
-          throw new Error(
-            "Tu n’es pas connectée en admin (session expirée). Ferme la page, reconnecte-toi sur /admin, puis réessaie."
-          );
-        }
-
-        const serverMsg =
-          (payload && (payload.error || payload.message)) ||
-          (textBody ? textBody.slice(0, 300) : "");
-
-        throw new Error(
-          serverMsg
-            ? `Erreur d’envoi (HTTP ${res.status}) : ${serverMsg}`
-            : `Erreur d’envoi (HTTP ${res.status}).`
-        );
-      }
-
-      // ✅ OK : on s’attend à du json avec order
-      const okJson =
-        payload ??
-        (() => {
-          try {
-            return JSON.parse(textBody);
-          } catch {
-            return null;
-          }
-        })();
-
-      if (!okJson?.order) {
-        // pas bloquant, mais on te le dit
-        toast.success("Email envoyé ✅", "Commandes");
-        onClose();
-        return;
-      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? "Erreur d’envoi");
 
       toast.success("Email envoyé ✅", "Commandes");
       onSent({
-        status: okJson.order.status,
-        sent_at: okJson.order.sent_at ?? null,
+        status: json.order.status,
+        sent_at: json.order.sent_at ?? null,
       });
       onClose();
     } catch (e: any) {
@@ -160,8 +143,8 @@ export default function SendPhotosModal({
     files.length === 0
       ? "Aucun fichier sélectionné"
       : files.length === 1
-      ? "1 fichier sélectionné"
-      : `${files.length} fichiers sélectionnés`;
+        ? "1 fichier sélectionné"
+        : `${files.length} fichiers sélectionnés`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -221,8 +204,8 @@ export default function SendPhotosModal({
 
               <div className="mt-2 rounded-2xl border border-black/10 bg-white p-4">
                 <div className="text-xs text-black/55">
-                  Cette liste sert juste à t’aider à savoir quelles photos il faut
-                  envoyer. Tu ajoutes ensuite les fichiers ci-dessous.
+                  Cette liste sert juste à t’aider à savoir quelles photos il
+                  faut envoyer. Tu ajoutes ensuite les fichiers ci-dessous.
                 </div>
 
                 <div className="mt-3 flex flex-col gap-2">
@@ -315,7 +298,8 @@ export default function SendPhotosModal({
                               {f.name}
                             </div>
                             <div className="text-[11px] text-black/45 font-mono">
-                              {Math.round((f.size / 1024 / 1024) * 100) / 100} MB
+                              {Math.round((f.size / 1024 / 1024) * 100) / 100}{" "}
+                              MB
                             </div>
                           </div>
 
