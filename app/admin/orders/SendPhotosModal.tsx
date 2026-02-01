@@ -55,7 +55,6 @@ export default function SendPhotosModal({
     setMessage(`Bonjour,\n\nMerci pour votre achat ! Voici vos photos :\n`);
     setFiles([]);
 
-    // reset input file (sinon parfois il garde l’ancien état)
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [open, order.id]);
 
@@ -70,8 +69,6 @@ export default function SendPhotosModal({
 
   function removeFile(index: number) {
     setFiles((prev) => prev.filter((_, i) => i !== index));
-    // on ne peut pas enlever un fichier de l'input directement,
-    // mais comme on envoie via FormData à partir de state, c'est ok.
   }
 
   async function submit() {
@@ -122,17 +119,22 @@ export default function SendPhotosModal({
       : `${files.length} fichiers sélectionnés`;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
-      <div className="w-full max-w-3xl rounded-[28px] border border-black/10 bg-white shadow-xl">
-        <div className="p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      {/* Panel */}
+      <div className="w-full max-w-3xl overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-xl">
+        {/* Header */}
+        <div className="border-b border-black/10 p-6">
           <div className="text-sm font-semibold text-black/80">
             Envoyer les photos (manuel)
           </div>
           <div className="mt-1 text-xs text-black/45">
             Commande <span className="font-mono">{order.id}</span>
           </div>
+        </div>
 
-          <div className="mt-5 grid gap-4">
+        {/* Body scrollable (✅ fix iPad) */}
+        <div className="max-h-[70vh] overflow-y-auto p-6 overscroll-contain">
+          <div className="grid gap-4">
             <div>
               <label className="text-xs uppercase tracking-[0.18em] text-black/45">
                 À
@@ -166,7 +168,7 @@ export default function SendPhotosModal({
               />
             </div>
 
-            {/* ✅ Références de commande (aide Inès) */}
+            {/* Références de commande */}
             <div>
               <label className="text-xs uppercase tracking-[0.18em] text-black/45">
                 Photos dans la commande (référence)
@@ -217,7 +219,7 @@ export default function SendPhotosModal({
               </div>
             </div>
 
-            {/* ✅ Upload manuel — bouton FR */}
+            {/* Upload manuel */}
             <div>
               <label className="text-xs uppercase tracking-[0.18em] text-black/45">
                 Fichiers à envoyer (Inès ajoute ici)
@@ -228,7 +230,6 @@ export default function SendPhotosModal({
                   Ajoute les fichiers correspondant à cette commande.
                 </div>
 
-                {/* input caché */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -251,7 +252,6 @@ export default function SendPhotosModal({
                   <div className="text-xs text-black/55">{filesLabel}</div>
                 </div>
 
-                {/* liste des fichiers */}
                 {files.length > 0 ? (
                   <div className="mt-4">
                     <div className="text-xs font-semibold text-black/70">
@@ -289,12 +289,15 @@ export default function SendPhotosModal({
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="mt-6 flex items-center justify-end gap-3">
+        {/* Footer sticky (✅ toujours visible) */}
+        <div className="border-t border-black/10 bg-white p-6">
+          <div className="flex items-center justify-end gap-3">
             <button
               onClick={onClose}
               disabled={busy}
-              className="rounded-2xl border border-black/10 bg-white px-5 py-2 text-sm font-semibold text-black/70 hover:bg-black/3"
+              className="rounded-2xl border border-black/10 bg-white px-5 py-2 text-sm font-semibold text-black/70 hover:bg-black/3 disabled:opacity-50"
             >
               Annuler
             </button>

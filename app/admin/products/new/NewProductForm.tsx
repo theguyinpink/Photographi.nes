@@ -19,6 +19,13 @@ type FormState = {
 
 type Step = "idle" | "creating" | "uploading" | "saving" | "done";
 
+type SignedUploadResponse = {
+  signedUrl: string;
+  publicUrl: string;
+  path?: string;
+  putHeaders?: Record<string, string>;
+};
+
 export default function NewProductForm() {
   const router = useRouter();
   const toast = useToast();
@@ -66,7 +73,9 @@ export default function NewProductForm() {
   }, [dirty, busy]);
 
   const canSubmit = useMemo(() => {
-    return form.title.trim().length >= 2 && Number(form.price) > 0 && !!file && !busy;
+    return (
+      form.title.trim().length >= 2 && Number(form.price) > 0 && !!file && !busy
+    );
   }, [form.title, form.price, file, busy]);
 
   function onChange<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -100,7 +109,10 @@ export default function NewProductForm() {
     return id;
   }
 
-  async function uploadToSupabaseSignedUrl(productId: string, f: File): Promise<string> {
+  async function uploadToSupabaseSignedUrl(
+    productId: string,
+    f: File
+  ): Promise<string> {
     // 1) demander une signed upload url à notre API (admin only)
     const r = await fetch(`/api/admin/products/${productId}/image`, {
       method: "POST",
@@ -112,18 +124,37 @@ export default function NewProductForm() {
     });
 
     if (!r.ok) throw new Error(await r.text());
-    const { signedUrl, publicUrl } = await r.json();
+
+    const { signedUrl, publicUrl, putHeaders }: SignedUploadResponse =
+      await r.json();
+
+    if (!signedUrl || !publicUrl) {
+      throw new Error("Réponse upload invalide (signedUrl/publicUrl manquants).");
+    }
 
     // 2) upload direct vers Supabase via PUT (pas via Vercel)
+    //    ✅ on utilise les headers renvoyés par l’API (cache-control inclus)
+    const headers: Record<string, string> = {
+      ...(putHeaders ?? {}),
+    };
+
+    // fallback si jamais putHeaders n'existe pas
+    if (!headers["content-type"]) {
+      headers["content-type"] = f.type || "application/octet-stream";
+    }
+    if (!headers["cache-control"]) {
+      headers["cache-control"] = "public, max-age=31536000, immutable";
+    }
+
     const up = await fetch(signedUrl, {
       method: "PUT",
-      headers: { "content-type": f.type || "application/octet-stream" },
+      headers,
       body: f,
     });
 
     if (!up.ok) throw new Error(`Upload Supabase failed (${up.status})`);
 
-    return publicUrl as string;
+    return publicUrl;
   }
 
   async function saveImageUrl(productId: string, publicUrl: string) {
@@ -178,10 +209,10 @@ export default function NewProductForm() {
     step === "creating"
       ? "Création du produit…"
       : step === "uploading"
-        ? "Upload de l’image…"
-        : step === "saving"
-          ? "Sauvegarde…"
-          : "";
+      ? "Upload de l’image…"
+      : step === "saving"
+      ? "Sauvegarde…"
+      : "";
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -206,7 +237,9 @@ export default function NewProductForm() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-zinc-900">Prix (€)</label>
+              <label className="text-sm font-medium text-zinc-900">
+                Prix (€)
+              </label>
               <input
                 inputMode="decimal"
                 value={form.price}
@@ -218,7 +251,9 @@ export default function NewProductForm() {
 
             <div className="flex items-end gap-3">
               <label className="flex-1">
-                <div className="text-sm font-medium text-zinc-900">Date (optionnel)</div>
+                <div className="text-sm font-medium text-zinc-900">
+                  Date (optionnel)
+                </div>
                 <input
                   type="date"
                   value={form.taken_at}
@@ -238,7 +273,9 @@ export default function NewProductForm() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-zinc-900">Sport (optionnel)</label>
+              <label className="text-sm font-medium text-zinc-900">
+                Sport (optionnel)
+              </label>
               <input
                 value={form.sport}
                 onChange={(e) => onChange("sport", e.target.value)}
@@ -248,7 +285,9 @@ export default function NewProductForm() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-zinc-900">Équipe (optionnel)</label>
+              <label className="text-sm font-medium text-zinc-900">
+                Équipe (optionnel)
+              </label>
               <input
                 value={form.team}
                 onChange={(e) => onChange("team", e.target.value)}
@@ -258,7 +297,9 @@ export default function NewProductForm() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-zinc-900">Catégorie (optionnel)</label>
+              <label className="text-sm font-medium text-zinc-900">
+                Catégorie (optionnel)
+              </label>
               <input
                 value={form.category}
                 onChange={(e) => onChange("category", e.target.value)}
@@ -268,7 +309,9 @@ export default function NewProductForm() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-zinc-900">Personne (optionnel)</label>
+              <label className="text-sm font-medium text-zinc-900">
+                Personne (optionnel)
+              </label>
               <input
                 value={form.person}
                 onChange={(e) => onChange("person", e.target.value)}
@@ -278,7 +321,9 @@ export default function NewProductForm() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="text-sm font-medium text-zinc-900">Description (optionnel)</label>
+              <label className="text-sm font-medium text-zinc-900">
+                Description (optionnel)
+              </label>
               <textarea
                 value={form.description}
                 onChange={(e) => onChange("description", e.target.value)}
@@ -318,7 +363,9 @@ export default function NewProductForm() {
           </button>
 
           <div className="flex items-center gap-3">
-            {busy ? <div className="text-sm text-zinc-500">{statusLabel}</div> : null}
+            {busy ? (
+              <div className="text-sm text-zinc-500">{statusLabel}</div>
+            ) : null}
             <button
               type="submit"
               disabled={!canSubmit}
