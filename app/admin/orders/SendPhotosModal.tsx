@@ -93,13 +93,58 @@ export default function SendPhotosModal({
         body: fd,
       });
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((json as any)?.error ?? "Erreur d’envoi");
+      // ✅ On ne suppose PAS que la réponse est JSON.
+      const ct = res.headers.get("content-type") || "";
+      let payload: any = null;
+      let textBody = "";
+
+      if (ct.includes("application/json")) {
+        payload = await res.json().catch(() => null);
+      } else {
+        textBody = await res.text().catch(() => "");
+      }
+
+      if (!res.ok) {
+        // 401 -> message clair (souvent le cas sur iPad si session pas valide)
+        if (res.status === 401) {
+          throw new Error(
+            "Tu n’es pas connectée en admin (session expirée). Ferme la page, reconnecte-toi sur /admin, puis réessaie."
+          );
+        }
+
+        const serverMsg =
+          (payload && (payload.error || payload.message)) ||
+          (textBody ? textBody.slice(0, 300) : "");
+
+        throw new Error(
+          serverMsg
+            ? `Erreur d’envoi (HTTP ${res.status}) : ${serverMsg}`
+            : `Erreur d’envoi (HTTP ${res.status}).`
+        );
+      }
+
+      // ✅ OK : on s’attend à du json avec order
+      const okJson =
+        payload ??
+        (() => {
+          try {
+            return JSON.parse(textBody);
+          } catch {
+            return null;
+          }
+        })();
+
+      if (!okJson?.order) {
+        // pas bloquant, mais on te le dit
+        toast.success("Email envoyé ✅", "Commandes");
+        onClose();
+        return;
+      }
 
       toast.success("Email envoyé ✅", "Commandes");
       onSent({
-        status: (json as any).order.status,
-        sent_at: (json as any).order.sent_at ?? null,
+        status: okJson.order.status,
+        sent_at: okJson.order.sent_at ?? null,
       });
       onClose();
     } catch (e: any) {
@@ -199,6 +244,7 @@ export default function SendPhotosModal({
                                 fill
                                 sizes="40px"
                                 className="object-cover"
+                                unoptimized
                               />
                             ) : null}
                           </div>

@@ -163,6 +163,7 @@ export default function OrdersTable({
                                     fill
                                     sizes="40px"
                                     className="object-cover"
+                                    unoptimized
                                   />
                                 ) : null}
                               </div>
