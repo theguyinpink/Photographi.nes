@@ -69,6 +69,10 @@ export default async function ShopPage({
     .select("sport,team,category,person")
     .eq("is_active", true);
 
+  console.log("ALL DATA FILTRE LENGTH :", allData?.length);
+  console.log("ALL DATA FILTRE :", allData);
+  console.log("PERSONNES :", uniqSorted(allData?.map((x) => x.person) ?? []));
+
   const options = {
     sports: uniqSorted(allData?.map((x) => x.sport) ?? []),
     teams: uniqSorted(allData?.map((x) => x.team) ?? []),
