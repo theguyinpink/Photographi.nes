@@ -32,6 +32,55 @@ function uniqSorted(values: (string | null | undefined)[]) {
   ).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
+type FilterRow = {
+  sport: string | null;
+  team: string | null;
+  category: string | null;
+  person: string | null;
+};
+
+async function getAllFilterRows() {
+  const pageSize = 30;
+  let from = 0;
+  let rows: FilterRow[] = [];
+
+  while (true) {
+    const { data, error } = await supabasePublic
+      .from("products")
+      .select("sport,team,category,person,created_at")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("Erreur récupération filtres :", error.message);
+      break;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    rows = [
+      ...rows,
+      ...data.map((x) => ({
+        sport: x.sport,
+        team: x.team,
+        category: x.category,
+        person: x.person,
+      })),
+    ];
+
+    if (data.length < pageSize) {
+      break;
+    }
+
+    from += pageSize;
+  }
+
+  return rows;
+}
+
 export default async function ShopPage({
   searchParams,
 }: {
@@ -64,21 +113,24 @@ export default async function ShopPage({
 
   // ✅ options for dropdowns: derive from ALL active products (not only filtered)
   // (so you don't "lose" options once a filter is applied)
-  const { data: allData } = await supabasePublic
-    .from("products")
-    .select("sport,team,category,person")
-    .eq("is_active", true);
+const allData = await getAllFilterRows();
+
+const options = {
+  sports: uniqSorted(allData.map((x) => x.sport)),
+  teams: uniqSorted(allData.map((x) => x.team)),
+  categories: uniqSorted(allData.map((x) => x.category)),
+  persons: uniqSorted(allData.map((x) => x.person)),
+};
 
   console.log("ALL DATA FILTRE LENGTH :", allData?.length);
   console.log("ALL DATA FILTRE :", allData);
   console.log("PERSONNES :", uniqSorted(allData?.map((x) => x.person) ?? []));
 
-  const options = {
-    sports: uniqSorted(allData?.map((x) => x.sport) ?? []),
-    teams: uniqSorted(allData?.map((x) => x.team) ?? []),
-    categories: uniqSorted(allData?.map((x) => x.category) ?? []),
-    persons: uniqSorted(allData?.map((x) => x.person) ?? []),
-  };
+  console.log(
+    "PRODUITS DE LA PERSONNE MANQUANTE :",
+    allData?.filter((x) => x.person?.toLowerCase().includes("prenom-ou-nom")),
+  );
+
 
   return (
     <Shell>
